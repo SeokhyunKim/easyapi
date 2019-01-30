@@ -30,6 +30,8 @@ cmake_install.cmake
 # Icon must end with two \r
 Icon
 
+# Library files
+*.a
 
 # Thumbnails
 ._*

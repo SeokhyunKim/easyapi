@@ -60,7 +60,24 @@ bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
 
 int main(int argc, char* argv[]) {
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
-        cout << "usage: easyapi get|post url [data json] [variable name] [file name for the variable]" << endl;
+        cout << "usage: easyapi get|post url [data json] [file name for generating different data jsons] [number of threads]" << endl;
+        cout << "- get cases" << endl;
+        cout << "  # this will return respons of this get api call" << endl;
+        cout << "  easyapi get http://blabla.com/api/test" << endl;
+        cout << "  # this will make api calls using the values in data_file. The values of data_file is used to replace ${var1} for different calls." << endl;
+        cout << "  # also 5 threads will be used to make api calls. If thread number is not given, only one thread is used." << endl;
+        cout << "  easyapi get http://blabla.com/api/test/${var1} data_file 5" << endl;
+        cout << "- post cases" << endl;
+        cout << "  # this will make post call with given data" << endl;
+        cout << "  easyapi post http://blabla.com/api/post-test/ '{\"field\":\"value\"}'" << endl;
+        cout << "  # this will make post calls with populated data jsons using values in data_file. Also, this will use 10 threads." << endl;
+        cout << "  easyapi post http://blabla.com/api/post-test/ '{\"field\":\"${var}\"}' 10" << endl;
+        cout << "- about data file format" << endl;
+        cout << "  # see this example" << endl;
+        cout << "  var1, var2, var3   # first line should have list of variables. These variables also shuld exist in get-url path or data json of post call" << endl;
+        cout << "  11, 22, 33         # var1, var2, var3 of get-url or post data-json will be replaced with these values." << endl;
+        cout << "  ...                # number of calls should be same with number of these value lines." << endl;
+        cout << "  ...                # If multiple threads are used, those will make calls by dividing given values" << endl;
         return 0;
     }
     HttpCall httpCall;

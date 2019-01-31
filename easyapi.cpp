@@ -84,7 +84,13 @@ int main(int argc, char* argv[]) {
     int key = httpCall.createKey();
     
     if (0 == strcmp(argv[1], "get")) {
-        cout << httpCall.get(key, argv[2]) << endl;
+        string result = httpCall.get(key, argv[2]);
+        if (!HttpCall::isFailed(result)) {
+            json j = json::parse(result);
+            cout << j.dump(4) << endl;
+        } else {
+            cout << result << endl;
+        }
     } else if (0 == strcmp(argv[1], "post")) {
         string url = argv[2];
         if (argc == 4) {

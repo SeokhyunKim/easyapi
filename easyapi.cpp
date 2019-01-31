@@ -7,8 +7,10 @@
 #include <vector>
 #include <algorithm>
 #include "HttpCall.hpp"
+#include <nlohmann/json.hpp>
 
 using namespace std;
+using json = nlohmann::json;
 
 vector<string> extractVariables(const string& jsonTemplate) {
     size_t pos = jsonTemplate.find("${");
@@ -70,7 +72,13 @@ int main(int argc, char* argv[]) {
         string url = argv[2];
         if (argc == 4) {
             string data = argv[3];
-            cout << httpCall.post(key, url, data) << endl;
+            string result = httpCall.post(key, url, data);
+            if (!HttpCall::isFailed(result)) {
+                json j = json::parse(result);
+                cout << j.dump(4) << endl;
+            } else {
+                cout << result << endl;
+            }
         } else if (argc <= 6) {
             if (argc < 6) {
                 cout << "Not enough parameters for data json having a variable." << endl;
@@ -125,7 +133,13 @@ int main(int argc, char* argv[]) {
                         }
                         varjsonTemplate.replace(pos, replacement.size(), data);
                     }
-                    cout << httpCall.post(key, url, varjsonTemplate) << endl;
+                    string result = httpCall.post(key, url, varjsonTemplate);
+                    if (!HttpCall::isFailed(result)) {
+                        json jsonResult = json::parse(result);
+                        cout << jsonResult.dump(4) << endl;
+                    } else {
+                        cout << result << endl;
+                    }
                 }
             };
             vector<thread> threads;

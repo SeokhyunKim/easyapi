@@ -4,6 +4,33 @@
 
 using namespace std;
 
+string toString(HttpMethod method) {
+    switch(method) {
+        case GET:
+            return "get";
+        case POST:
+            return "post";
+        case PUT:
+            return "put";
+        case DELETE:
+            return "delete";
+    }
+    return "";
+}
+
+HttpMethod fromString(const string& str) {
+    if (0 == str.compare("get")) {
+        return GET;
+    } else if (0 == str.compare("post")) {
+        return POST;
+    } else if (0 == str.compare("put")) {
+        return PUT;
+    } else if (0 == str.compare("delete")) {
+        return DELETE;
+    }
+    return UNDEFINED;
+}
+
 HttpCall::HttpCall() {
     curl_global_init(CURL_GLOBAL_ALL);
 }
@@ -40,44 +67,18 @@ void HttpCall::deleteKey(int key) {
     curls[key] = nullptr;
 }
 
-string HttpCall::get(int key, const string& url) const {
+string HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data) const {
     CURL* curl = getCurl(key);
     if (curl == nullptr) {
         return "";
     }
-    curl_easy_reset(curl);
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCall::write_callback);
+    setOptions(curl, method, url, data);
     string read_buf;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
     CURLcode res = curl_easy_perform(curl);
     if(res != CURLE_OK) {
-        cout << "Failed to get " + url << endl;
+        cout << "Failed to " << toString(method) << " " + url << endl;
         cout << "Error msg: " << curl_easy_strerror(res) << endl;
-        return "";
-    }
-    return read_buf;
-}
-
-string  HttpCall::post(int key, const string& url, const string& json) const {
-    CURL* curl = getCurl(key);
-    if (curl == nullptr) {
-        return "";
-    }
-    curl_easy_reset(curl);
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCall::write_callback);
-    struct curl_slist *headers = nullptr;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    string read_buf;
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.c_str());
-    CURLcode res = curl_easy_perform(curl);
-    if(res != CURLE_OK) {
-        cout << "Failed to post. url:  " << url << ", data: " << json << endl;
-        cout << "Error msg: " << curl_easy_strerror(res) << endl;
-        return "";
     }
     return read_buf;
 }
@@ -94,6 +95,29 @@ CURL* HttpCall::getCurl(int key) const {
         return nullptr;
     }
     return curls[key];
+}
+
+void HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, const string& data) const {
+    curl_easy_reset(curl);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCall::write_callback);
+
+    if (method == GET) {
+        return;
+    }
+
+    //todo: will add other content type support later
+    struct curl_slist *headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    if (method == PUT) {
+        curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+    } else if (method == POST) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    } else if (method == DELETE) {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+    }
 }
 
 size_t HttpCall::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {

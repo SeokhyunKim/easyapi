@@ -6,6 +6,11 @@
 #include <mutex>
 #include <curl/curl.h>
 
+
+enum HttpMethod { GET, POST, PUT, DELETE, UNDEFINED };
+std::string toString(HttpMethod method);
+HttpMethod fromString(const std::string& str);
+
 class HttpCall {
 private:
     std::vector<CURL*> curls;
@@ -17,13 +22,13 @@ public:
     int createKey();
     void deleteKey(int key);
 
-    std::string get(int key, const std::string& url) const;
-    std::string post(int key, const std::string& url, const std::string& json) const;
+    std::string call(int key, HttpMethod method, const std::string& url, const std::string& data="") const;
 
     static bool isFailed(const std::string& response);
     
 private:
     CURL* getCurl(int key) const;
+    void setOptions(CURL* curl, HttpMethod method, const std::string& url, const std::string& data="") const;
 
     static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 };

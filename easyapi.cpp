@@ -12,18 +12,18 @@
 using namespace std;
 using json = nlohmann::json;
 
-vector<string> extractVariables(const string& jsonTemplate) {
-    size_t pos = jsonTemplate.find("${");
+vector<string> extractVariables(const string& templateStr) {
+    size_t pos = templateStr.find("${");
     if (pos == string::npos) {
         return vector<string>();
     }
     vector<string> variables;
     while (pos != string::npos) {
-        size_t endPos = jsonTemplate.find("}", pos + 2);
+        size_t endPos = templateStr.find("}", pos + 2);
         if (endPos != string::npos && (endPos - pos - 2 > 0)) {
-            variables.push_back(jsonTemplate.substr(pos + 2, endPos - pos - 2));
+            variables.push_back(templateStr.substr(pos + 2, endPos - pos - 2));
         }
-        pos = jsonTemplate.find("${", pos + 2);
+        pos = templateStr.find("${", pos + 2);
     }
     return variables;
 }
@@ -58,20 +58,21 @@ bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
     return true;
 }
 
+
 int main(int argc, char* argv[]) {
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
-        cout << "usage: easyapi get|post url [data json] [file name for generating different data jsons] [number of threads]" << endl;
-        cout << "- get cases" << endl;
-        cout << "  # this will return respons of this get api call" << endl;
+        cout << "usage: easyapi get|post|put|delete url [data json] [file name for generating different data jsons] [number of threads]" << endl << endl;
+        cout << "- Simple one call cases" << endl;
+        cout << "  # just give url and data. Currently, only support json for data. (will be extended later)" << endl;
         cout << "  easyapi get http://blabla.com/api/test" << endl;
-        cout << "  # this will make api calls using the values in data_file. The values of data_file is used to replace ${var1} for different calls." << endl;
-        cout << "  # also 5 threads will be used to make api calls. If thread number is not given, only one thread is used." << endl;
-        cout << "  easyapi get http://blabla.com/api/test/${var1} data_file 5" << endl;
-        cout << "- post cases" << endl;
-        cout << "  # this will make post call with given data" << endl;
-        cout << "  easyapi post http://blabla.com/api/post-test/ '{\"field\":\"value\"}'" << endl;
-        cout << "  # this will make post calls with populated data jsons using values in data_file. Also, this will use 10 threads." << endl;
-        cout << "  easyapi post http://blabla.com/api/post-test/ '{\"field\":\"${var}\"}' 10" << endl;
+        cout << "  easyapi post http://blabla.com/api/test/ '{\"key\":\"value\"}'" << endl;
+        cout << "  easyapi put http://blabla.com/api/test/ '{\"key\":\"value\"}'" << endl;
+        cout << "  easyapi delete post http://blabla.com/api/test/ '{\"key\":\"value\"}'" << endl << endl;
+        cout << "- Making multiple calls using variables and data file" << endl;
+        cout << "  # use ${var} in url path or data." << endl;
+        cout << "  # in below example, ${var1} and ${var2} will be replaced with the values in data_file." << endl;
+        cout << "  # and also 5 threads will be used to make calls simulataneously." << endl;
+        cout << "  easyapi post http://blabla.com/api/${var1}/test '{\"key\":\"${var2}\"}' data_file 5" << endl;
         cout << "- about data file format" << endl;
         cout << "  # see this example" << endl;
         cout << "  var1, var2, var3   # first line should have list of variables. These variables also shuld exist in get-url path or data json of post call" << endl;
@@ -80,103 +81,117 @@ int main(int argc, char* argv[]) {
         cout << "  ...                # If multiple threads are used, those will make calls by dividing given values" << endl;
         return 0;
     }
+
     HttpCall httpCall;
     int key = httpCall.createKey();
-    
-    if (0 == strcmp(argv[1], "get")) {
-        string result = httpCall.get(key, argv[2]);
+
+    HttpMethod method = fromString(string(argv[1]));
+    if (method == UNDEFINED) {
+        cout << "Currently, support get, post, put, and delete calls." << endl;
+        cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
+        return 0;
+    }
+
+    string path = argv[2];
+    vector<string> pathVariables = extractVariables(path);
+    string data;
+    vector<string> dataVariables;
+    if (argc > 3) {
+        data = argv[3];
+        dataVariables = extractVariables(data);
+    } else {
+        data = "";
+    }
+
+    if (pathVariables.empty() && dataVariables.empty()) {
+        string result = httpCall.call(key, method, path, data);
         if (!HttpCall::isFailed(result)) {
             json j = json::parse(result);
             cout << j.dump(4) << endl;
         } else {
             cout << result << endl;
         }
-    } else if (0 == strcmp(argv[1], "post")) {
-        string url = argv[2];
-        if (argc == 4) {
-            string data = argv[3];
-            string result = httpCall.post(key, url, data);
-            if (!HttpCall::isFailed(result)) {
-                json j = json::parse(result);
-                cout << j.dump(4) << endl;
-            } else {
-                cout << result << endl;
-            }
-        } else if (argc <= 6) {
-            if (argc < 6) {
-                cout << "Not enough parameters for data json having a variable." << endl;
-                return 0;
-            }
-            string jsonTemplate = argv[3];
-            vector<string> variables = extractVariables(jsonTemplate);
-            string fileName = argv[4];
-            int numThreads = atoi(argv[5]);
-            fstream variableData(fileName);
-            string firstLine;
-            getline(variableData, firstLine);
-            vector<string> firstLineVariables = tokenizeCSVLine(firstLine);
-            if (!isSame(variables, firstLineVariables)) {
-                cout << "Variables of data-template and data-file are not matched" << endl;
-                return 0;
-            }
+    } else {
+        if (argc < 5) {
+            cout << "Variables are used, but data file is not given." << endl;
+            cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
+            return 0;
+        }
+        string data_file = argv[4];
+        fstream variableData(data_file);
+        int numThreads = 1;
+        if (argc > 5) {
+            numThreads = atoi(argv[5]);
+        }
+        // check whether the first line of data_file is matched with given variables;
+        string firstLine;
+        getline(variableData, firstLine);
+        vector<string> firstLineVariables = tokenizeCSVLine(firstLine);
+        vector<string> variables(pathVariables.begin(), pathVariables.end());
+        variables.insert(variables.begin(), dataVariables.begin(), dataVariables.end());
+        if (!isSame(variables, firstLineVariables)) {
+            cout << "Variables of data-template and data-file are not matched" << endl;
+            return 0;
+        }
 
-            string line;
-            vector<string> lines; 
-            while (getline(variableData, line)) {
-                lines.push_back(line);
-            }
-            cout << "Number of data-file lines: " << lines.size() << endl;
-            cout << "Number of threads: " << numThreads << endl << endl;
-            cout << "List of variables: ";
-            for (auto& var : variables) {
-                cout << var << " ";
-            }
-            cout << endl;
-            cout << "The first line of the data file: " << firstLine << endl;
-            cout << endl << "Everything is looking good? (y/n) ";
-            char isProceed;
-            cin >> isProceed;
-            if (isProceed != 'y' && isProceed != 'Y') {
-                return 0;
-            }
+        // read lines from data_file, show configuration, and getting confirmation to go forward
+        string line;
+        vector<string> lines; 
+        while (getline(variableData, line)) {
+            lines.push_back(line);
+        }
+        cout << "Number of data-file lines: " << lines.size() << endl;
+        cout << "Number of threads: " << numThreads << endl << endl;
+        cout << "List of variables: ";
+        for (auto& var : variables) {
+            cout << var << " ";
+        }
+        cout << endl;
+        cout << "The first line of the data file: " << firstLine << endl;
+        cout << endl << "Everything is looking good? (y/n) ";
+        char isProceed;
+        cin >> isProceed;
+        if (isProceed != 'y' && isProceed != 'Y') {
+            return 0;
+        }
 
-            long chunkSize = lines.size() / numThreads;
-            auto worker = [=, &httpCall](const vector<string>& lines, const vector<string>& variables, int start, int end) {
-                int key = httpCall.createKey();
-                for (int i=start; i<end; ++i) {
-                    string line = lines[i];
-                    string varjsonTemplate = jsonTemplate;
-                    vector<string> tokens = tokenizeCSVLine(line);
-                    for (int i=0; i<variables.size(); ++i) {
-                        string replacement = "${" + variables[i] + "}";
-                        string data = tokens[i];
-                        size_t pos = varjsonTemplate.find(replacement);
-                        if (pos == string::npos) {
-                            continue;
-                        }
-                        varjsonTemplate.replace(pos, replacement.size(), data);
+        // divide chuncks by numThreads and launch workers
+        long chunkSize = lines.size() / numThreads;
+        auto worker = [=, &httpCall](const vector<string>& lines, const vector<string>& variables, int start, int end) {
+            int key = httpCall.createKey();
+            for (int i=start; i<end; ++i) {
+                string line = lines[i];
+                string pathTemplate = path;
+                string varjsonTemplate = data;
+                vector<string> tokens = tokenizeCSVLine(line);
+                for (int i=0; i<variables.size(); ++i) {
+                    string replacement = "${" + pathVariables[i] + "}";
+                    string value = tokens[i];
+                    size_t pos1= pathTemplate.find(replacement);
+                    if (pos1 != string::npos) {
+                        pathTemplate.replace(pos1, replacement.size(), value);
                     }
-                    string result = httpCall.post(key, url, varjsonTemplate);
-                    if (!HttpCall::isFailed(result)) {
-                        json jsonResult = json::parse(result);
-                        cout << jsonResult.dump(4) << endl;
-                    } else {
-                        cout << result << endl;
+                    size_t pos2 = varjsonTemplate.find(replacement);
+                    if (pos2 == string::npos) {
+                        varjsonTemplate.replace(pos2, replacement.size(), data);
                     }
                 }
-            };
-            vector<thread> threads;
-            for (int i=0; i<numThreads; ++i) {
-                threads.push_back(thread(worker, lines, firstLineVariables, i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size())));
+                string result = httpCall.call(key, method, pathTemplate, varjsonTemplate);
+                if (!HttpCall::isFailed(result)) {
+                    json jsonResult = json::parse(result);
+                    cout << jsonResult.dump(4) << endl;
+                } else {
+                    cout << result << endl;
+                }
             }
-            for (auto& th : threads) {
-                th.join();
-            }
-        } else {
-            cout << "Wrong options. Try again. argc: " << argc  << endl;
+        };
+        vector<thread> threads;
+        for (int i=0; i<numThreads; ++i) {
+            threads.push_back(thread(worker, lines, firstLineVariables, i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size())));
         }
-    } else {
-        cout << "1st option should be get or post." << endl;
+        for (auto& th : threads) {
+            th.join();
+        }
     }
 
     return 0;

@@ -11,6 +11,12 @@ enum HttpMethod { GET, POST, PUT, DELETE, UNDEFINED };
 std::string toString(HttpMethod method);
 HttpMethod fromString(const std::string& str);
 
+struct HttpCallResponse {
+    long code;
+    std::string response;
+};
+
+
 class HttpCall {
 private:
     std::vector<CURL*> curls;
@@ -22,10 +28,8 @@ public:
     int createKey();
     void deleteKey(int key);
 
-    std::string call(int key, HttpMethod method, const std::string& url, const std::string& data="") const;
+    HttpCallResponse call(int key, HttpMethod method, const std::string& url, const std::string& data="") const;
 
-    static bool isFailed(const std::string& response);
-    
 private:
     CURL* getCurl(int key) const;
     void setOptions(CURL* curl, HttpMethod method, const std::string& url, const std::string& data="") const;

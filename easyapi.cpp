@@ -6,10 +6,13 @@
 #include <thread>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 #include "HttpCall.hpp"
+#include "ParseArguments.hpp"
 #include <nlohmann/json.hpp>
 
 using namespace std;
+using namespace std::chrono;
 using json = nlohmann::json;
 
 vector<string> extractVariables(const string& templateStr) {
@@ -58,6 +61,124 @@ bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
     return true;
 }
 
+void printHttpCallResponse(HttpCallResponse& response) {
+    if (response.code == 200l) {
+        json j = json::parse(response.response);
+        cout << j.dump(4) << endl;
+    } else if (response.code > 0l) {
+        cout << "code: " << response.code << ", response: " << response.response << endl; 
+    } else {
+        cout << response.response << endl;
+    }
+}
+
+void processSingleApiCall(const ParseArguments& pa) {
+    HttpCall httpCall;
+    int key = httpCall.createKey();
+    HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData());
+    printHttpCallResponse(response);
+}
+
+void processMultipleApiCalls(const ParseArguments& pa,
+                             const vector<string>& pathVariables,
+                             const vector<string>& dataVariables,
+                             fstream& variableData) {
+    HttpCall httpCall;
+
+    // check whether the first line of data_file is matched with given variables;
+    string firstLine;
+    getline(variableData, firstLine);
+    vector<string> firstLineVariables = tokenizeCSVLine(firstLine);
+    vector<string> variables(pathVariables.begin(), pathVariables.end());
+    variables.insert(variables.begin(), dataVariables.begin(), dataVariables.end());
+    if (!isSame(variables, firstLineVariables)) {
+        cout << "Variables of data-template and data-file are not matched" << endl;
+        return;
+    }
+    // read lines from data_file, show configuration, and getting confirmation to go forward
+    string line;
+    vector<string> lines; 
+    while (getline(variableData, line)) {
+        lines.push_back(line);
+    }
+    cout << "Number of data-file lines: " << lines.size() << endl;
+    cout << "Number of threads: " << pa.getNumThreads() << endl << endl;
+    cout << "List of variables: ";
+    for (auto& var : variables) {
+       cout << var << " ";
+    }
+    cout << endl;
+    cout << "The first line of the data file: " << firstLine << endl;
+    cout << endl << "Everything is looking good? (y/n) ";
+    char isProceed;
+    cin >> isProceed;
+    if (isProceed != 'y' && isProceed != 'Y') {
+        return;
+    }
+    // divide chuncks by numThreads and launch workers
+    long chunkSize = lines.size() / pa.getNumThreads();
+    auto worker = [&](const vector<string>& lines, const vector<string>& variables, int start, int end, int& callCount, long& elappsedTime) {
+        int key = httpCall.createKey();
+        for (int i=start; i<end; ++i) {
+            string line = lines[i];
+            string pathTemplate = pa.getUrl();
+            string varjsonTemplate = pa.getData();
+            vector<string> tokens = tokenizeCSVLine(line);
+            for (int i=0; i<variables.size(); ++i) {
+                string replacement = "${" + pathVariables[i] + "}";
+                string value = tokens[i];
+                size_t pos1= pathTemplate.find(replacement);
+                if (pos1 != string::npos) {
+                    pathTemplate.replace(pos1, replacement.size(), value);
+                }
+                size_t pos2 = varjsonTemplate.find(replacement);
+                if (pos2 == string::npos) {
+                    varjsonTemplate.replace(pos2, replacement.size(), value);
+                }
+            }
+            auto start = high_resolution_clock::now();
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
+            auto stop = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(stop - start);
+            elappsedTime += duration.count();
+            printHttpCallResponse(response);
+            ++callCount;
+        }
+    };
+    vector<thread> threads;
+    vector<int> callCounts(pa.getNumThreads());
+    vector<long> elappsedTimes(pa.getNumThreads());
+    for (int i=0; i<pa.getNumThreads(); ++i) {
+        callCounts.push_back(0);
+        elappsedTimes.push_back(0l);
+        threads.push_back(thread(worker, lines, firstLineVariables, i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size()), ref(callCounts[i]), ref(elappsedTimes[i])));
+    }
+    // This is for printing out call counts per second
+    auto latencyChecker = [](const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone) {
+        auto last = system_clock::now();
+        while (!isDone) {
+            auto current = system_clock::now();
+            auto duration = duration_cast<seconds>(current - last);
+            if (duration.count() < 2) {
+                continue;
+            }
+            long totalTime = 0l;
+            for_each(elappsedTimes.begin(), elappsedTimes.end(), [&totalTime](long t) { totalTime += t; });
+            int totalCount = 0;
+            for_each(callCounts.begin(), callCounts.end(), [&totalCount](int c) { totalCount += c; });
+            double avgTime = (double)totalTime / totalCount;
+            cout << "Average time for api call: " << avgTime << " ms" << endl;
+            last = current;
+        }
+    };
+    bool isDone = false;
+    thread callCountWorker(latencyChecker, callCounts, elappsedTimes, ref(isDone));
+    for (auto& th : threads) {
+        th.join();
+    }
+    isDone = true;
+    callCountWorker.join();
+}
 
 int main(int argc, char* argv[]) {
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
@@ -82,116 +203,28 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    HttpCall httpCall;
-    int key = httpCall.createKey();
+    ParseArguments pa(argc, argv);
 
-    HttpMethod method = fromString(string(argv[1]));
-    if (method == UNDEFINED) {
+    if (pa.getMethod() == UNDEFINED) {
         cout << "Currently, support get, post, put, and delete calls." << endl;
         cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
         return 0;
     }
 
-    string path = argv[2];
-    vector<string> pathVariables = extractVariables(path);
-    string data;
-    vector<string> dataVariables;
-    if (argc > 3) {
-        data = argv[3];
-        dataVariables = extractVariables(data);
-    } else {
-        data = "";
-    }
+    vector<string> pathVariables = extractVariables(pa.getUrl());
+    vector<string> dataVariables = extractVariables(pa.getData());
 
     if (pathVariables.empty() && dataVariables.empty()) {
-        string result = httpCall.call(key, method, path, data);
-        if (!HttpCall::isFailed(result)) {
-            json j = json::parse(result);
-            cout << j.dump(4) << endl;
-        } else {
-            cout << result << endl;
-        }
+        processSingleApiCall(pa);
     } else {
-        if (argc < 5) {
+        // todo: add test to check existence of the file
+        if (pa.getDataFileName().empty()) {
             cout << "Variables are used, but data file is not given." << endl;
             cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
             return 0;
         }
-        string data_file = argv[4];
-        fstream variableData(data_file);
-        int numThreads = 1;
-        if (argc > 5) {
-            numThreads = atoi(argv[5]);
-        }
-        // check whether the first line of data_file is matched with given variables;
-        string firstLine;
-        getline(variableData, firstLine);
-        vector<string> firstLineVariables = tokenizeCSVLine(firstLine);
-        vector<string> variables(pathVariables.begin(), pathVariables.end());
-        variables.insert(variables.begin(), dataVariables.begin(), dataVariables.end());
-        if (!isSame(variables, firstLineVariables)) {
-            cout << "Variables of data-template and data-file are not matched" << endl;
-            return 0;
-        }
-
-        // read lines from data_file, show configuration, and getting confirmation to go forward
-        string line;
-        vector<string> lines; 
-        while (getline(variableData, line)) {
-            lines.push_back(line);
-        }
-        cout << "Number of data-file lines: " << lines.size() << endl;
-        cout << "Number of threads: " << numThreads << endl << endl;
-        cout << "List of variables: ";
-        for (auto& var : variables) {
-            cout << var << " ";
-        }
-        cout << endl;
-        cout << "The first line of the data file: " << firstLine << endl;
-        cout << endl << "Everything is looking good? (y/n) ";
-        char isProceed;
-        cin >> isProceed;
-        if (isProceed != 'y' && isProceed != 'Y') {
-            return 0;
-        }
-
-        // divide chuncks by numThreads and launch workers
-        long chunkSize = lines.size() / numThreads;
-        auto worker = [=, &httpCall](const vector<string>& lines, const vector<string>& variables, int start, int end) {
-            int key = httpCall.createKey();
-            for (int i=start; i<end; ++i) {
-                string line = lines[i];
-                string pathTemplate = path;
-                string varjsonTemplate = data;
-                vector<string> tokens = tokenizeCSVLine(line);
-                for (int i=0; i<variables.size(); ++i) {
-                    string replacement = "${" + pathVariables[i] + "}";
-                    string value = tokens[i];
-                    size_t pos1= pathTemplate.find(replacement);
-                    if (pos1 != string::npos) {
-                        pathTemplate.replace(pos1, replacement.size(), value);
-                    }
-                    size_t pos2 = varjsonTemplate.find(replacement);
-                    if (pos2 == string::npos) {
-                        varjsonTemplate.replace(pos2, replacement.size(), data);
-                    }
-                }
-                string result = httpCall.call(key, method, pathTemplate, varjsonTemplate);
-                if (!HttpCall::isFailed(result)) {
-                    json jsonResult = json::parse(result);
-                    cout << jsonResult.dump(4) << endl;
-                } else {
-                    cout << result << endl;
-                }
-            }
-        };
-        vector<thread> threads;
-        for (int i=0; i<numThreads; ++i) {
-            threads.push_back(thread(worker, lines, firstLineVariables, i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size())));
-        }
-        for (auto& th : threads) {
-            th.join();
-        }
+        fstream variableData(pa.getDataFileName());
+        processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
     }
 
     return 0;

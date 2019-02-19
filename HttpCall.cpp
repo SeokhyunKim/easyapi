@@ -14,6 +14,8 @@ string toString(HttpMethod method) {
             return "put";
         case DELETE:
             return "delete";
+        default:
+            return "undefined";
     }
     return "";
 }
@@ -67,27 +69,29 @@ void HttpCall::deleteKey(int key) {
     curls[key] = nullptr;
 }
 
-string HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data) const {
+HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data) const {
     CURL* curl = getCurl(key);
     if (curl == nullptr) {
-        return "";
+        HttpCallResponse response;
+        response.code = -1;
+        response.response = "Failed to make a http call.";
+        return response;
     }
     setOptions(curl, method, url, data);
     string read_buf;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
     CURLcode res = curl_easy_perform(curl);
+    HttpCallResponse response;
     if(res != CURLE_OK) {
-        cout << "Failed to " << toString(method) << " " + url << endl;
-        cout << "Error msg: " << curl_easy_strerror(res) << endl;
+        response.code = -1;
+        response.response = "Failed to make a http call.";
+    } else {
+        long response_code;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+        response.code = response_code;
+        response.response = read_buf;
     }
-    return read_buf;
-}
-
-bool HttpCall::isFailed(const string& response) {
-    if (string::npos == response.find("Failed to ")) {
-        return false;
-    }
-    return true;
+    return response;
 }
 
 CURL* HttpCall::getCurl(int key) const {
@@ -111,10 +115,12 @@ void HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, cons
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
+    if (!data.empty()) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    }
+
     if (method == PUT) {
         curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-    } else if (method == POST) {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     } else if (method == DELETE) {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     }

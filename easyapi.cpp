@@ -72,7 +72,18 @@ void printHttpCallResponse(HttpCallResponse& response) {
     }
 }
 
+string getTestCommand(HttpMethod method, const string& url, const string& data) {
+    if (!data.empty()) {
+        return "easyapi " + ::toString(method) + " " + url + " " + data;
+    }
+    return "easyapi " + ::toString(method) + " " + url;
+}
+
 void processSingleApiCall(const ParseArguments& pa) {
+    if (pa.isTestRun()) {
+        cout << getTestCommand(pa.getMethod(), pa.getUrl(), pa.getData()) << endl;
+        return;
+    }
     HttpCall httpCall;
     int key = httpCall.createKey();
     HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData());
@@ -101,6 +112,7 @@ void processMultipleApiCalls(const ParseArguments& pa,
     while (getline(variableData, line)) {
         lines.push_back(line);
     }
+    // print parameters before executing multiple threads for making lots of api calls.
     cout << "Number of data-file lines: " << lines.size() << endl;
     cout << "Number of threads: " << pa.getNumThreads() << endl << endl;
     cout << "List of variables: ";
@@ -115,8 +127,10 @@ void processMultipleApiCalls(const ParseArguments& pa,
     if (isProceed != 'y' && isProceed != 'Y') {
         return;
     }
+
     // divide chuncks by numThreads and launch workers
     long chunkSize = lines.size() / pa.getNumThreads();
+    // api call thread worker
     auto worker = [&](const vector<string>& lines, const vector<string>& variables, int start, int end, int& callCount, long& elappsedTime) {
         int key = httpCall.createKey();
         for (int i=start; i<end; ++i) {
@@ -125,26 +139,31 @@ void processMultipleApiCalls(const ParseArguments& pa,
             string varjsonTemplate = pa.getData();
             vector<string> tokens = tokenizeCSVLine(line);
             for (int i=0; i<variables.size(); ++i) {
-                string replacement = "${" + pathVariables[i] + "}";
+                string replacement = "${" + variables[i] + "}";
                 string value = tokens[i];
                 size_t pos1= pathTemplate.find(replacement);
                 if (pos1 != string::npos) {
                     pathTemplate.replace(pos1, replacement.size(), value);
                 }
                 size_t pos2 = varjsonTemplate.find(replacement);
-                if (pos2 == string::npos) {
+                if (pos2 != string::npos) {
                     varjsonTemplate.replace(pos2, replacement.size(), value);
                 }
             }
-            auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
-            auto stop = high_resolution_clock::now();
-            auto duration = duration_cast<milliseconds>(stop - start);
-            elappsedTime += duration.count();
-            printHttpCallResponse(response);
+            if (pa.isTestRun()) {
+                cout << getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate) << endl;
+            } else {
+                auto start = high_resolution_clock::now();
+                HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
+                auto stop = high_resolution_clock::now();
+                auto duration = duration_cast<milliseconds>(stop - start);
+                elappsedTime += duration.count();
+                printHttpCallResponse(response);
+            }
             ++callCount;
         }
     };
+    // starting threads for multiple api calls
     vector<thread> threads;
     vector<int> callCounts(pa.getNumThreads());
     vector<long> elappsedTimes(pa.getNumThreads());
@@ -172,17 +191,22 @@ void processMultipleApiCalls(const ParseArguments& pa,
         }
     };
     bool isDone = false;
-    thread callCountWorker(latencyChecker, callCounts, elappsedTimes, ref(isDone));
+    thread callCountWorker;
+    if (!pa.isTestRun()) {
+        callCountWorker = thread(latencyChecker, callCounts, elappsedTimes, ref(isDone));
+    }
     for (auto& th : threads) {
         th.join();
     }
     isDone = true;
-    callCountWorker.join();
+    if (callCountWorker.joinable()) {
+        callCountWorker.join();
+    }
 }
 
 int main(int argc, char* argv[]) {
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
-        cout << "usage: easyapi get|post|put|delete url [data json] [file name for generating different data jsons] [number of threads]" << endl << endl;
+        cout << "usage: easyapi get|post|put|delete url [data json] [optional parameters]" << endl << endl;
         cout << "- Simple one call cases" << endl;
         cout << "  # just give url and data. Currently, only support json for data. (will be extended later)" << endl;
         cout << "  easyapi get http://blabla.com/api/test" << endl;
@@ -192,14 +216,18 @@ int main(int argc, char* argv[]) {
         cout << "- Making multiple calls using variables and data file" << endl;
         cout << "  # use ${var} in url path or data." << endl;
         cout << "  # in below example, ${var1} and ${var2} will be replaced with the values in data_file." << endl;
-        cout << "  # and also 5 threads will be used to make calls simulataneously." << endl;
-        cout << "  easyapi post http://blabla.com/api/${var1}/test '{\"key\":\"${var2}\"}' data_file 5" << endl;
-        cout << "- about data file format" << endl;
+        cout << "  easyapi post http://blabla.com/api/${var1}/test '{\"key\":\"${var2}\"}' --data-file data_file" << endl << endl;
+        cout << "  easyapi get http://blabla.com/api/${var1} --data-file data_file" << endl << endl;
+        cout << "- About data file format" << endl;
         cout << "  # see this example" << endl;
         cout << "  var1, var2, var3   # first line should have list of variables. These variables also shuld exist in get-url path or data json of post call" << endl;
         cout << "  11, 22, 33         # var1, var2, var3 of get-url or post data-json will be replaced with these values." << endl;
         cout << "  ...                # number of calls should be same with number of these value lines." << endl;
-        cout << "  ...                # If multiple threads are used, those will make calls by dividing given values" << endl;
+        cout << "  ...                # If multiple threads are used, those will make calls by dividing given values" << endl << endl;
+        cout << "- Optional parameters" << endl;
+        cout << "  --data-file or -f" << "\t" << "Data file name containing list of path and data variables at the first line, and real datas in following lines." << endl;
+        cout << "  --test-run or -tr" << "\t" << "Test run. Don't make real api calls. Instead showing command which will be used for real calls." << endl;
+        cout << "  --num-threads or -nt" << "\t" << "Number of threads used for making multiple calls with multiple threads" << endl;
         return 0;
     }
 

@@ -5,30 +5,30 @@
 #include <string>
 #include "HttpCall.hpp"
 
-using namespace std;
-
 class ParseArguments {
 public:
     ParseArguments(int argc, char* argv[]);
 
     HttpMethod getMethod() const { return _httpMethod; }
-    string getUrl() const { return _url; }
-    string getData() const { return _data; }
-    string getDataFileName() const { return _dataFileName; }
+    std::string getUrl() const { return _url; }
+    std::string getData() const { return _data; }
+    std::string getDataFileName() const { return _dataFileName; }
     int getNumThreads() const { return _numThreads; }
+    bool isTestRun() const { return _isTestRun; }
+    std::string toString() const;
 
 private:
     void parseArguments(int argc, char* argv[]);
-    vector<string> extractOptionalArguments(int argc, char* argv[]);
+    std::vector<std::string> extractOptionalArguments(int argc, char* argv[]);
 
 private:
     // mandatory parameters
     HttpMethod _httpMethod;
-    string _url;
-    string _data;
+    std::string _url;
+    std::string _data;
 
     // optional parameters
-    string _dataFileName;
+    std::string _dataFileName;
     int _numThreads;
     bool _isTestRun;
 

@@ -90,6 +90,69 @@ void processSingleApiCall(const ParseArguments& pa) {
     printHttpCallResponse(response);
 }
 
+// api call thread worker
+void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
+                   const vector<string>& lines, const vector<string>& variables, int start, int end,
+                   int& callCount, long& elappsedTime) {
+    int key = httpCall.createKey();
+    for (int i=start; i<end; ++i) {
+        string line = lines[i];
+        string pathTemplate = pa.getUrl();
+        string varjsonTemplate = pa.getData();
+        vector<string> tokens = tokenizeCSVLine(line);
+        for (int i=0; i<variables.size(); ++i) {
+            string replacement = "${" + variables[i] + "}";
+            string value = tokens[i];
+            size_t pos1= pathTemplate.find(replacement);
+            if (pos1 != string::npos) {
+                pathTemplate.replace(pos1, replacement.size(), value);
+            }
+            size_t pos2 = varjsonTemplate.find(replacement);
+            if (pos2 != string::npos) {
+                varjsonTemplate.replace(pos2, replacement.size(), value);
+            }
+        }
+        if (pa.isTestRun()) {
+            cout << getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate) << endl;
+        } else {
+            auto start = high_resolution_clock::now();
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
+            auto stop = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(stop - start);
+            elappsedTime += duration.count();
+            printHttpCallResponse(response);
+        }
+        callCount += 1;
+    }
+}
+
+// thread worker for printing out average api latency
+void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone) {
+    auto last = system_clock::now();
+    while (!isDone) {
+        auto current = system_clock::now();
+        auto duration = duration_cast<seconds>(current - last);
+        if (duration.count() < 2) {
+            this_thread::sleep_for(milliseconds(500));
+            continue;
+        }
+        long totalTime = 0l;
+        for_each(elappsedTimes.begin(), elappsedTimes.end(), [&totalTime](long t) { totalTime += t; });
+        int totalCount = 0;
+        for_each(callCounts.begin(), callCounts.end(), [&totalCount](int c) { totalCount += c; });
+        if (totalTime <= 0l || totalCount <= 0l) {
+            this_thread::sleep_for(milliseconds(100));
+            continue;
+        }
+        double avgTime = (double)totalTime / totalCount;
+        cout << "Average time for api call: " << avgTime <<
+                " ms, Total call count: " << totalCount <<
+                ", Total elappsed time: " << totalTime <<
+                " ms" << endl;
+        last = current;
+    }
+}
+
 void processMultipleApiCalls(const ParseArguments& pa,
                              const vector<string>& pathVariables,
                              const vector<string>& dataVariables,
@@ -130,39 +193,11 @@ void processMultipleApiCalls(const ParseArguments& pa,
 
     // divide chuncks by numThreads and launch workers
     long chunkSize = lines.size() / pa.getNumThreads();
-    // api call thread worker
-    auto worker = [&](const vector<string>& lines, const vector<string>& variables, int start, int end, int& callCount, long& elappsedTime) {
-        int key = httpCall.createKey();
-        for (int i=start; i<end; ++i) {
-            string line = lines[i];
-            string pathTemplate = pa.getUrl();
-            string varjsonTemplate = pa.getData();
-            vector<string> tokens = tokenizeCSVLine(line);
-            for (int i=0; i<variables.size(); ++i) {
-                string replacement = "${" + variables[i] + "}";
-                string value = tokens[i];
-                size_t pos1= pathTemplate.find(replacement);
-                if (pos1 != string::npos) {
-                    pathTemplate.replace(pos1, replacement.size(), value);
-                }
-                size_t pos2 = varjsonTemplate.find(replacement);
-                if (pos2 != string::npos) {
-                    varjsonTemplate.replace(pos2, replacement.size(), value);
-                }
-            }
-            if (pa.isTestRun()) {
-                cout << getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate) << endl;
-            } else {
-                auto start = high_resolution_clock::now();
-                HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
-                auto stop = high_resolution_clock::now();
-                auto duration = duration_cast<milliseconds>(stop - start);
-                elappsedTime += duration.count();
-                printHttpCallResponse(response);
-            }
-            ++callCount;
-        }
-    };
+    if (chunkSize <= 0l) {
+        cout << "Too many threads. Number of input lines: " << lines.size() << ", Thread number: " << pa.getNumThreads() << endl;
+        return;
+    }
+
     // starting threads for multiple api calls
     vector<thread> threads;
     vector<int> callCounts(pa.getNumThreads());
@@ -170,31 +205,16 @@ void processMultipleApiCalls(const ParseArguments& pa,
     for (int i=0; i<pa.getNumThreads(); ++i) {
         callCounts.push_back(0);
         elappsedTimes.push_back(0l);
-        threads.push_back(thread(worker, lines, firstLineVariables, i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size()), ref(callCounts[i]), ref(elappsedTimes[i])));
+        threads.push_back(thread(apiCallWorker, ref(pa), ref(httpCall), ref(lines), ref(firstLineVariables), i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size()),
+                                 ref(callCounts[i]), ref(elappsedTimes[i])));
     }
     // This is for printing out call counts per second
-    auto latencyChecker = [](const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone) {
-        auto last = system_clock::now();
-        while (!isDone) {
-            auto current = system_clock::now();
-            auto duration = duration_cast<seconds>(current - last);
-            if (duration.count() < 2) {
-                continue;
-            }
-            long totalTime = 0l;
-            for_each(elappsedTimes.begin(), elappsedTimes.end(), [&totalTime](long t) { totalTime += t; });
-            int totalCount = 0;
-            for_each(callCounts.begin(), callCounts.end(), [&totalCount](int c) { totalCount += c; });
-            double avgTime = (double)totalTime / totalCount;
-            cout << "Average time for api call: " << avgTime << " ms" << endl;
-            last = current;
-        }
-    };
     bool isDone = false;
     thread callCountWorker;
     if (!pa.isTestRun()) {
-        callCountWorker = thread(latencyChecker, callCounts, elappsedTimes, ref(isDone));
+        callCountWorker = thread(latencyChecker, ref(callCounts), ref(elappsedTimes), ref(isDone));
     }
+    // joining worker threads
     for (auto& th : threads) {
         th.join();
     }

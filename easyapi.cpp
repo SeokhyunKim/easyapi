@@ -225,6 +225,12 @@ void processMultipleApiCalls(const ParseArguments& pa,
 }
 
 int main(int argc, char* argv[]) {
+    cout << (int)'a' << " " << (int)'z' << " " << (int)'A' << " " << (int)'Z' << endl;
+    cout << (int)'0' << " " << (int)'9' << endl;
+    for (int i=91; i<97; ++i) {
+        cout << (char)i << " ";
+    }
+    return 0;
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
         cout << "usage: easyapi get|post|put|delete url [data json] [optional parameters]" << endl << endl;
         cout << "- Simple one call cases" << endl;

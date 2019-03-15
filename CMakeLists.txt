@@ -18,8 +18,10 @@ find_package(nlohmann_json 3.4.0 REQUIRED)
 
 include_directories(${CURL_INCLUDE_DIR})
 
+add_subdirectory(eval_func)
+
 add_library(httpcall HttpCall.cpp)
 add_library(parse_arguments ParseArguments.cpp)
 add_executable(easyapi easyapi.cpp)
 
-target_link_libraries(easyapi PRIVATE ${CURL_LIBRARIES} nlohmann_json::nlohmann_json httpcall parse_arguments)
+target_link_libraries(easyapi PRIVATE ${CURL_LIBRARIES} nlohmann_json::nlohmann_json httpcall parse_arguments eval_func)

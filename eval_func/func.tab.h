@@ -52,7 +52,7 @@
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 15 "func.y"
+#line 16 "func.y"
 { double num; char str[100]; }
 /* Line 1529 of yacc.c.  */
 #line 59 "func.tab.h"

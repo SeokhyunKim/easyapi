@@ -15,6 +15,7 @@ public:
     std::string getDataFileName() const { return _dataFileName; }
     int getNumThreads() const { return _numThreads; }
     bool isTestRun() const { return _isTestRun; }
+    int getTimeOut() cont { return _timeOut; }
     std::string toString() const;
 
 private:
@@ -31,6 +32,7 @@ private:
     std::string _dataFileName;
     int _numThreads;
     bool _isTestRun;
+    int _timeOut;
 
 };
 

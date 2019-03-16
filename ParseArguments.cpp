@@ -14,7 +14,8 @@ string ParseArguments::toString() const {
         "data: " + _data + "\n" +
         "data file name: " + _dataFileName + "\n" +
         "num threads: " + ::to_string(_numThreads) + "\n" +
-        "is test run: " + (_isTestRun ? "true" : "false") + "\n";
+        "is test run: " + (_isTestRun ? "true" : "false") + "\n" +
+        "time out: " + _timeOut + "\n";
 }
 
 void ParseArguments::parseArguments(int argc, char* argv[]) {
@@ -25,6 +26,7 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _dataFileName = "";
     _numThreads = 1;
     _isTestRun = false;
+    _timeOut = 0;
 
     // update optional parameters and get vector of mandatory ones
     vector<string> arguments = extractOptionalArguments(argc, argv);
@@ -54,6 +56,10 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
             }
         } else if (0 == arg.compare("-tr") || 0 == arg.compare("--test-run")) {
             _isTestRun = true;
+        } else if (0 == arg.compare("-to") || 0 == arg.compare("--time-out")) {
+            if (++cur < argc) {
+                _timeOut = atoi(argv[cur]);
+            }
         } else {
             arguments.push_back(arg);
         }

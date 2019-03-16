@@ -81,6 +81,7 @@
 #line 1 "func.y"
 
 /* Bison can generate c++ code. But, I would do that later. */
+#include "eval_func.h"
 #include "func_util.h"
 #include <string.h>
 #include <stdio.h>
@@ -113,10 +114,10 @@ double evaluation_result;
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 15 "func.y"
+#line 16 "func.y"
 { double num; char str[100]; }
 /* Line 193 of yacc.c.  */
-#line 120 "func.tab.c"
+#line 121 "func.tab.c"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
@@ -129,7 +130,7 @@ typedef union YYSTYPE
 
 
 /* Line 216 of yacc.c.  */
-#line 133 "func.tab.c"
+#line 134 "func.tab.c"
 
 #ifdef short
 # undef short
@@ -411,7 +412,7 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    24,    24,    26,    34,    35,    36,    38
+       0,    25,    25,    27,    35,    36,    37,    39
 };
 #endif
 
@@ -1311,12 +1312,12 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-#line 24 "func.y"
+#line 25 "func.y"
     { evaluation_result = (yyvsp[(2) - (2)].num); ;}
     break;
 
   case 3:
-#line 26 "func.y"
+#line 27 "func.y"
     { struct func_call_result result = eval_func_call((yyvsp[(1) - (4)].str));
                                               if (result.is_success != 1) {
                                                 yyerror("failed to evaluate function\n");
@@ -1327,13 +1328,13 @@ yyreduce:
     break;
 
   case 7:
-#line 38 "func.y"
+#line 39 "func.y"
     { add_arg((yyvsp[(1) - (1)].num)); ;}
     break;
 
 
 /* Line 1267 of yacc.c.  */
-#line 1337 "func.tab.c"
+#line 1338 "func.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1547,7 +1548,7 @@ yyreturn:
 }
 
 
-#line 43 "func.y"
+#line 44 "func.y"
 
 
 void yyerror(char* s) {

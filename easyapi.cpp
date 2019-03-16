@@ -10,56 +10,11 @@
 #include "HttpCall.hpp"
 #include "ParseArguments.hpp"
 #include <nlohmann/json.hpp>
+#include "eval_func/eval_func.h"
 
 using namespace std;
 using namespace std::chrono;
 using json = nlohmann::json;
-
-vector<string> extractVariables(const string& templateStr) {
-    size_t pos = templateStr.find("${");
-    if (pos == string::npos) {
-        return vector<string>();
-    }
-    vector<string> variables;
-    while (pos != string::npos) {
-        size_t endPos = templateStr.find("}", pos + 2);
-        if (endPos != string::npos && (endPos - pos - 2 > 0)) {
-            variables.push_back(templateStr.substr(pos + 2, endPos - pos - 2));
-        }
-        pos = templateStr.find("${", pos + 2);
-    }
-    return variables;
-}
-
-vector<string> tokenizeCSVLine(const string& line) {
-    char* lineary = (char*)line.c_str();
-    char* token = std::strtok(lineary, " ,");
-    vector<string> tokens;
-    while (token != nullptr) {
-        tokens.push_back(string(token));
-        token = std::strtok(nullptr, " ,");
-    }
-    return tokens;
-}
-
-bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
-    if (vec1.size() != vec2.size()) {
-        return false;
-    }
-    for (auto& str1 : vec1) {
-        bool find = false;
-        for (auto& str2 : vec2) {
-            if (0 == str1.compare(str2)) {
-                find = true;
-                break;
-            }
-        }
-        if (!find) {
-            return false;
-        }
-    }
-    return true;
-}
 
 void printHttpCallResponse(HttpCallResponse& response) {
     if (response.code == 200l) {
@@ -225,12 +180,6 @@ void processMultipleApiCalls(const ParseArguments& pa,
 }
 
 int main(int argc, char* argv[]) {
-    cout << (int)'a' << " " << (int)'z' << " " << (int)'A' << " " << (int)'Z' << endl;
-    cout << (int)'0' << " " << (int)'9' << endl;
-    for (int i=91; i<97; ++i) {
-        cout << (char)i << " ";
-    }
-    return 0;
     if (argc < 3 || 0 == strcmp(argv[1], "help")) {
         cout << "usage: easyapi get|post|put|delete url [data json] [optional parameters]" << endl << endl;
         cout << "- Simple one call cases" << endl;

@@ -1,5 +1,6 @@
 %{
 /* Bison can generate c++ code. But, I would do that later. */
+#include "eval_func.h"
 #include "func_util.h"
 #include <string.h>
 #include <stdio.h>

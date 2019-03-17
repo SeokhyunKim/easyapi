@@ -69,15 +69,21 @@ void HttpCall::deleteKey(int key) {
     curls[key] = nullptr;
 }
 
-HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data) const {
+HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data, int timeOut) const {
     CURL* curl = getCurl(key);
     if (curl == nullptr) {
         HttpCallResponse response;
         response.code = -1;
-        response.response = "Failed to make a http call.";
+        response.response = "Failed to initialize libcurl.";
         return response;
     }
-    setOptions(curl, method, url, data);
+    if (!setOptions(curl, method, url, data, timeOut)) {
+        HttpCallResponse response;
+        response.code = -1;
+        response.response = "Failed to set options.";
+        return response;
+    }
+
     string read_buf;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
     CURLcode res = curl_easy_perform(curl);
@@ -101,29 +107,43 @@ CURL* HttpCall::getCurl(int key) const {
     return curls[key];
 }
 
-void HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, const string& data) const {
+bool HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, const string& data, int timeOut) const {
     curl_easy_reset(curl);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCall::write_callback);
-
-    if (method == GET) {
-        return;
+    /* activate when debugging
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    curl_easy_setopt(curl, CURLOPT_HEADER, 1L);*/
+    
+    if (timeOut > 0) {
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeOut);
     }
 
-    //todo: will add other content type support later
-    struct curl_slist *headers = nullptr;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    if (method == GET) {
+        return true;
+    }
 
-    if (!data.empty()) {
+    if (method == POST) {
+        if (data.empty()) {
+            return false;
+        }
+
+        //todo: will add other content type support later
+        struct curl_slist *headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     }
 
     if (method == PUT) {
         curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+        curl_easy_setopt(curl, CURLOPT_READDATA, NULL);
+        curl_easy_setopt(curl, CURLOPT_INFILESIZE, 0L);
     } else if (method == DELETE) {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     }
+
+    return true;
 }
 
 size_t HttpCall::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {

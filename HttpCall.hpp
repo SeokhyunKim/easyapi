@@ -28,11 +28,11 @@ public:
     int createKey();
     void deleteKey(int key);
 
-    HttpCallResponse call(int key, HttpMethod method, const std::string& url, const std::string& data="") const;
+    HttpCallResponse call(int key, HttpMethod method, const std::string& url, const std::string& data="", int timeOut=0) const;
 
 private:
     CURL* getCurl(int key) const;
-    void setOptions(CURL* curl, HttpMethod method, const std::string& url, const std::string& data="") const;
+    bool setOptions(CURL* curl, HttpMethod method, const std::string& url, const std::string& data="", int timeOut=0) const;
 
     static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 };

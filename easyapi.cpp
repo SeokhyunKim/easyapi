@@ -61,10 +61,14 @@ bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
     return true;
 }
 
-void printHttpCallResponse(HttpCallResponse& response) {
+void printHttpCallResponse(HttpCallResponse& response, const string& outputFormat) {
     if (response.code == 200l) {
-        json j = json::parse(response.response);
-        cout << j.dump(4) << endl;
+        if (0 == outputFormat.compare("json")) {
+            json j = json::parse(response.response);
+            cout << j.dump(4) << endl;
+        } else {
+            cout << response.response << endl;
+        }
     } else if (response.code > 0l) {
         cout << "code: " << response.code << ", response: " << response.response << endl; 
     } else {
@@ -86,8 +90,8 @@ void processSingleApiCall(const ParseArguments& pa) {
     }
     HttpCall httpCall;
     int key = httpCall.createKey();
-    HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData());
-    printHttpCallResponse(response);
+    HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData(), pa.getTimeOut());
+    printHttpCallResponse(response, pa.getOutputFormat());
 }
 
 // api call thread worker
@@ -116,11 +120,11 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
             cout << getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate) << endl;
         } else {
             auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate);
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
-            printHttpCallResponse(response);
+            printHttpCallResponse(response, pa.getOutputFormat());
         }
         callCount += 1;
     }
@@ -252,7 +256,6 @@ int main(int argc, char* argv[]) {
     }
 
     ParseArguments pa(argc, argv);
-
     if (pa.getMethod() == UNDEFINED) {
         cout << "Currently, support get, post, put, and delete calls." << endl;
         cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;

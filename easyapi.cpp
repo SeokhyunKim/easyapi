@@ -10,56 +10,12 @@
 #include "HttpCall.hpp"
 #include "ParseArguments.hpp"
 #include <nlohmann/json.hpp>
+#include "easyapi_util.hpp"
+#include "eval_func/eval_func.h"
 
 using namespace std;
 using namespace std::chrono;
 using json = nlohmann::json;
-
-vector<string> extractVariables(const string& templateStr) {
-    size_t pos = templateStr.find("${");
-    if (pos == string::npos) {
-        return vector<string>();
-    }
-    vector<string> variables;
-    while (pos != string::npos) {
-        size_t endPos = templateStr.find("}", pos + 2);
-        if (endPos != string::npos && (endPos - pos - 2 > 0)) {
-            variables.push_back(templateStr.substr(pos + 2, endPos - pos - 2));
-        }
-        pos = templateStr.find("${", pos + 2);
-    }
-    return variables;
-}
-
-vector<string> tokenizeCSVLine(const string& line) {
-    char* lineary = (char*)line.c_str();
-    char* token = std::strtok(lineary, " ,");
-    vector<string> tokens;
-    while (token != nullptr) {
-        tokens.push_back(string(token));
-        token = std::strtok(nullptr, " ,");
-    }
-    return tokens;
-}
-
-bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
-    if (vec1.size() != vec2.size()) {
-        return false;
-    }
-    for (auto& str1 : vec1) {
-        bool find = false;
-        for (auto& str2 : vec2) {
-            if (0 == str1.compare(str2)) {
-                find = true;
-                break;
-            }
-        }
-        if (!find) {
-            return false;
-        }
-    }
-    return true;
-}
 
 void printHttpCallResponse(HttpCallResponse& response, const string& outputFormat) {
     if (response.code == 200l) {

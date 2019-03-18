@@ -1,8 +1,19 @@
 #include "HttpCall.hpp"
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 
 using namespace std;
+
+#define READ_BUFFER_SIZE    (1024*10)
+
+struct WriteData {
+    char buffer[READ_BUFFER_SIZE];
+    int length;
+    WriteData() : length(0) {
+        buffer[0] = '\0';
+    }
+};
 
 string toString(HttpMethod method) {
     switch(method) {
@@ -84,8 +95,8 @@ HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& u
         return response;
     }
 
-    string read_buf;
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buf);
+    WriteData writeData;
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&writeData);
     CURLcode res = curl_easy_perform(curl);
     HttpCallResponse response;
     if(res != CURLE_OK) {
@@ -95,7 +106,7 @@ HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& u
         long response_code;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
         response.code = response_code;
-        response.response = read_buf;
+        response.response = writeData.buffer;
     }
     return response;
 }
@@ -146,8 +157,20 @@ bool HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, cons
     return true;
 }
 
-size_t HttpCall::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
-    string* read_buf = (string*)userdata;
-    read_buf->append(ptr, size * nmemb);
-    return size * nmemb;
+size_t HttpCall::write_callback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+  size_t realsize = size * nmemb;
+  WriteData* pWriteData = (WriteData*)userp;
+  char* dst = pWriteData->buffer + pWriteData->length;
+
+  size_t sizeToWrite = READ_BUFFER_SIZE - 1 - pWriteData->length;
+  if (realsize < sizeToWrite) {
+      sizeToWrite = realsize;
+  }
+
+  memcpy(dst, contents, sizeToWrite);
+  pWriteData->length += sizeToWrite;
+  pWriteData->buffer[pWriteData->length] = '\0';
+
+  return sizeToWrite;
 }

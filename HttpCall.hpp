@@ -34,7 +34,7 @@ private:
     CURL* getCurl(int key) const;
     bool setOptions(CURL* curl, HttpMethod method, const std::string& url, const std::string& data="", int timeOut=0) const;
 
-    static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+    static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata);
 };
 
 #endif

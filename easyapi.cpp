@@ -252,6 +252,8 @@ int main(int argc, char* argv[]) {
         cout << "  --data-file or -f" << "\t" << "Data file name containing list of path and data variables at the first line, and real datas in following lines." << endl;
         cout << "  --test-run or -tr" << "\t" << "Test run. Don't make real api calls. Instead showing command which will be used for real calls." << endl;
         cout << "  --num-threads or -nt" << "\t" << "Number of threads used for making multiple calls with multiple threads" << endl;
+        cout << "  --output-format or -ot" << "\t" <<"Output format. Default is json. Currently, if a string other than json is given, just printing out whatever received." << endl;
+        cout << "  --time-out or -to" << "\t" << "Time out in milliseconds. Default is 0 which means no time out." << endl;
         return 0;
     }
 

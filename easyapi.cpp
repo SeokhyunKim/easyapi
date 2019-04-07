@@ -2,34 +2,32 @@
 #include <string>
 #include <cstring>
 #include <cstddef>
+#include <cmath>
 #include <fstream>
 #include <thread>
 #include <vector>
 #include <algorithm>
 #include <chrono>
+#include <exception>
 #include "HttpCall.hpp"
 #include "ParseArguments.hpp"
 #include <nlohmann/json.hpp>
 #include "easyapi_util.hpp"
+#include "BufferedPrint.hpp"
 #include "eval_func/eval_func.h"
 
 using namespace std;
 using namespace std::chrono;
 using json = nlohmann::json;
 
-void printHttpCallResponse(HttpCallResponse& response, const string& outputFormat) {
-    if (response.code == 200l) {
-        if (0 == outputFormat.compare("json")) {
-            json j = json::parse(response.response);
-            cout << j.dump(4) << endl;
-        } else {
-            cout << response.response << endl;
-        }
+string getHttpCallResponse(HttpCallResponse& response, const string& outputFormat) {
+    if (response.code == 200l && 0 == outputFormat.compare("json")) {
+        json j = json::parse(response.response);
+        return j.dump(4);
     } else if (response.code > 0l) {
-        cout << "code: " << response.code << ", response: " << response.response << endl; 
-    } else {
-        cout << response.response << endl;
+        return "code: " + to_string(response.code) + ", response: " + response.response;
     }
+    return response.response;
 }
 
 string getTestCommand(HttpMethod method, const string& url, const string& data) {
@@ -47,22 +45,30 @@ void processSingleApiCall(const ParseArguments& pa) {
     HttpCall httpCall;
     int key = httpCall.createKey();
     HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData(), pa.getTimeOut());
-    printHttpCallResponse(response, pa.getOutputFormat());
+    cout << getHttpCallResponse(response, pa.getOutputFormat()) << endl;
 }
 
 // api call thread worker
 void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
                    const vector<string>& lines, const vector<string>& variables, int start, int end,
-                   int& callCount, long& elappsedTime) {
+                   int& callCount, long& elappsedTime,
+                   BufferedPrint& bufferedPrint) {
     int key = httpCall.createKey();
     for (int i=start; i<end; ++i) {
         string line = lines[i];
         string pathTemplate = pa.getUrl();
         string varjsonTemplate = pa.getData();
         vector<string> tokens = tokenizeCSVLine(line);
+        string variables_string;
+        bool isDataFine = true;
         for (int i=0; i<variables.size(); ++i) {
             string replacement = "${" + variables[i] + "}";
+            if (variables.size() > tokens.size()) {
+                isDataFine = false;
+                break;
+            }
             string value = tokens[i];
+            variables_string += value + " ";
             size_t pos1= pathTemplate.find(replacement);
             if (pos1 != string::npos) {
                 pathTemplate.replace(pos1, replacement.size(), value);
@@ -72,22 +78,27 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
                 varjsonTemplate.replace(pos2, replacement.size(), value);
             }
         }
+        if (!isDataFine) {
+            bufferedPrint.println("Found data issue. httpCallKey: " + to_string(key) + ", data line no: " + to_string(i) + ", line: " + line);
+            continue;
+        }
+        bufferedPrint.println("Input variables: " + variables_string);
         if (pa.isTestRun()) {
-            cout << getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate) << endl;
+            bufferedPrint.println(getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate));
         } else {
             auto start = high_resolution_clock::now();
             HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
-            printHttpCallResponse(response, pa.getOutputFormat());
+            bufferedPrint.println("Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
         }
         callCount += 1;
     }
 }
 
 // thread worker for printing out average api latency
-void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone) {
+void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone, BufferedPrint& bufferedPrint) {
     auto last = system_clock::now();
     while (!isDone) {
         auto current = system_clock::now();
@@ -105,10 +116,10 @@ void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedT
             continue;
         }
         double avgTime = (double)totalTime / totalCount;
-        cout << "Average time for api call: " << avgTime <<
-                " ms, Total call count: " << totalCount <<
-                ", Total elappsed time: " << totalTime <<
-                " ms" << endl;
+        bufferedPrint.println("Average time for api call: " + to_string(avgTime) +
+                              " ms, Total call count: " + to_string(totalCount) +
+                              ", Total elappsed time: " + to_string(totalTime) +
+                              " ms");
         last = current;
     }
 }
@@ -152,7 +163,7 @@ void processMultipleApiCalls(const ParseArguments& pa,
     }
 
     // divide chuncks by numThreads and launch workers
-    long chunkSize = lines.size() / pa.getNumThreads();
+    long chunkSize = (long)ceil((double)lines.size() / pa.getNumThreads());
     if (chunkSize <= 0l) {
         cout << "Too many threads. Number of input lines: " << lines.size() << ", Thread number: " << pa.getNumThreads() << endl;
         return;
@@ -162,17 +173,21 @@ void processMultipleApiCalls(const ParseArguments& pa,
     vector<thread> threads;
     vector<int> callCounts(pa.getNumThreads());
     vector<long> elappsedTimes(pa.getNumThreads());
+    BufferedPrint bufferedPrint(2048);
     for (int i=0; i<pa.getNumThreads(); ++i) {
         callCounts.push_back(0);
         elappsedTimes.push_back(0l);
-        threads.push_back(thread(apiCallWorker, ref(pa), ref(httpCall), ref(lines), ref(firstLineVariables), i*chunkSize, std::min((i+1)*chunkSize, (long)lines.size()),
-                                 ref(callCounts[i]), ref(elappsedTimes[i])));
+        long start = i*chunkSize;
+        long end = std::min((i+1)*chunkSize, (long)lines.size());
+        bufferedPrint.println("thread no " + to_string(i) + ", start " + to_string(start) + ", end " + to_string(end));
+        threads.push_back(thread(apiCallWorker, ref(pa), ref(httpCall), ref(lines), ref(firstLineVariables), start, end,
+                                 ref(callCounts[i]), ref(elappsedTimes[i]), ref(bufferedPrint)));
     }
     // This is for printing out call counts per second
     bool isDone = false;
     thread callCountWorker;
     if (!pa.isTestRun()) {
-        callCountWorker = thread(latencyChecker, ref(callCounts), ref(elappsedTimes), ref(isDone));
+        callCountWorker = thread(latencyChecker, ref(callCounts), ref(elappsedTimes), ref(isDone), ref(bufferedPrint));
     }
     // joining worker threads
     for (auto& th : threads) {
@@ -182,6 +197,33 @@ void processMultipleApiCalls(const ParseArguments& pa,
     if (callCountWorker.joinable()) {
         callCountWorker.join();
     }
+    bufferedPrint.flush();
+}
+
+void run_easyapi(int argc, char*argv[]) {
+    ParseArguments pa(argc, argv);
+    if (pa.getMethod() == UNDEFINED) {
+        cout << "Currently, support get, post, put, and delete calls." << endl;
+        cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
+        return;
+    }
+
+    vector<string> pathVariables = extractVariables(pa.getUrl());
+    vector<string> dataVariables = extractVariables(pa.getData());
+
+    if (pathVariables.empty() && dataVariables.empty()) {
+        processSingleApiCall(pa);
+    } else {
+        // todo: add test to check existence of the file
+        if (pa.getDataFileName().empty()) {
+            cout << "Variables are used, but data file is not given." << endl;
+            cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
+            return;
+        }
+        fstream variableData(pa.getDataFileName());
+        processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
+    }
+    return;
 }
 
 int main(int argc, char* argv[]) {
@@ -213,27 +255,12 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    ParseArguments pa(argc, argv);
-    if (pa.getMethod() == UNDEFINED) {
-        cout << "Currently, support get, post, put, and delete calls." << endl;
-        cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
-        return 0;
-    }
-
-    vector<string> pathVariables = extractVariables(pa.getUrl());
-    vector<string> dataVariables = extractVariables(pa.getData());
-
-    if (pathVariables.empty() && dataVariables.empty()) {
-        processSingleApiCall(pa);
-    } else {
-        // todo: add test to check existence of the file
-        if (pa.getDataFileName().empty()) {
-            cout << "Variables are used, but data file is not given." << endl;
-            cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
-            return 0;
-        }
-        fstream variableData(pa.getDataFileName());
-        processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
+    try {
+        run_easyapi(argc, argv);
+    } catch (bad_alloc& e) {
+        cout << "Allocation failed: " << e.what() << endl;
+    } catch (...) {
+        cout << "Opps what is this?" << endl;
     }
 
     return 0;

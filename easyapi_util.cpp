@@ -1,4 +1,5 @@
 #include "easyapi_util.hpp"
+#include <iostream>
 
 using namespace std;
 
@@ -21,13 +22,13 @@ vector<string> extractVariables(const string& templateStr) {
     return variables;
 }
 
-vector<string> tokenizeCSVLine(const string& line) {
+vector<string> tokenizeCSVLine(string line) {
     char* lineary = (char*)line.c_str();
-    char* token = std::strtok(lineary, " ,");
+    char* token;
+    char* rest = lineary;
     vector<string> tokens;
-    while (token != nullptr) {
-        tokens.push_back(string(token));
-        token = std::strtok(nullptr, " ,");
+    while ((token = strtok_r(rest, " ,", &rest))) {
+            tokens.push_back(string(token));
     }
     return tokens;
 }

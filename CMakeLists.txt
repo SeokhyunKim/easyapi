@@ -20,7 +20,7 @@ include_directories(${CURL_INCLUDE_DIR})
 
 add_subdirectory(eval_func)
 
-add_library(easyapi_utils HttpCall.cpp ParseArguments.cpp easyapi_util.cpp)
+add_library(easyapi_utils HttpCall.cpp ParseArguments.cpp easyapi_util.cpp BufferedPrint.cpp)
 add_executable(easyapi easyapi.cpp)
 
 target_link_libraries(easyapi PRIVATE ${CURL_LIBRARIES} nlohmann_json::nlohmann_json easyapi_utils eval_func)

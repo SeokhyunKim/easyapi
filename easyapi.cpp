@@ -101,8 +101,9 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
 }
 
 // thread worker for printing out average api latency
-void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedTimes, bool& isDone, BufferedPrint& bufferedPrint) {
+void latencyChecker(const vector<int>& callCounts, const vector<long>& elapsedTimes, bool& isDone, BufferedPrint& bufferedPrint) {
     auto last = system_clock::now();
+    auto startTime = last;
     while (!isDone) {
         auto current = system_clock::now();
         auto duration = duration_cast<seconds>(current - last);
@@ -111,7 +112,7 @@ void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedT
             continue;
         }
         long totalTime = 0l;
-        for_each(elappsedTimes.begin(), elappsedTimes.end(), [&totalTime](long t) { totalTime += t; });
+        for_each(elapsedTimes.begin(), elapsedTimes.end(), [&totalTime](long t) { totalTime += t; });
         int totalCount = 0;
         for_each(callCounts.begin(), callCounts.end(), [&totalCount](int c) { totalCount += c; });
         if (totalTime <= 0l || totalCount <= 0l) {
@@ -119,9 +120,10 @@ void latencyChecker(const vector<int>& callCounts, const vector<long>& elappsedT
             continue;
         }
         double avgTime = (double)totalTime / totalCount;
+        auto elapsed = duration_cast<milliseconds>(system_clock::now() - startTime).count();
         bufferedPrint.println("Average time for api call: " + to_string(avgTime) +
                               " ms, Total call count: " + to_string(totalCount) +
-                              ", Total elappsed time: " + to_string(totalTime) +
+                              ", Total elapsed time: " + to_string(elapsed) +
                               " ms");
         last = current;
     }

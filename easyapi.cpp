@@ -82,16 +82,19 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
             bufferedPrint.println("Found data issue. httpCallKey: " + to_string(key) + ", data line no: " + to_string(i) + ", line: " + line);
             continue;
         }
-        bufferedPrint.println("Input variables: " + variables_string);
+        string inputVars;
+        if (variables_string.length() > 0) {
+            inputVars = "Input variables: " + variables_string + "\n";
+        }
         if (pa.isTestRun()) {
-            bufferedPrint.println(getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate));
+            bufferedPrint.println(inputVars + getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate));
         } else {
             auto start = high_resolution_clock::now();
             HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
-            bufferedPrint.println("Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
+            bufferedPrint.println(inputVars + "Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
         }
         callCount += 1;
     }

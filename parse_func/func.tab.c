@@ -81,7 +81,7 @@
 #line 1 "func.y"
 
 /* Bison can generate c++ code. But, I would do that later. */
-#include "eval_func.h"
+#include "parse_func.h"
 #include "func_util.h"
 #include <string.h>
 #include <stdio.h>
@@ -1559,16 +1559,15 @@ char* get_error_message() {
     return error_message;
 }
 
-int is_evaluation_succeeded() {
+int is_parse_func_succeeded() {
     if (error_message[0] == '\0') {
         return 1;
     }
     return 0;
 }
 
-long evaluate_function(char* str) {
+long parse_func(const char* str) {
     yy_scan_string(str);
-    init_func_call();
     error_message[0] = '\0';
     yyparse();
     /* currently, casting double to int. will consider different evaluation type later, if needed */

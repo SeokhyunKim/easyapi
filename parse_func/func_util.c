@@ -26,7 +26,6 @@ struct {
     int num_arguments;
     FUNC func_ptr;
 } funcs[] = {
-    { "rand", 0, rand_0 },
     { "rand", 1, rand_1 },
     { "rand", 2, rand_2 }
 };
@@ -74,13 +73,6 @@ double rand_ratio() {
         r -= 1;
     }
     return (double)r / RAND_MAX;
-}
-
-double rand_0(double args[], int length) {
-#ifdef _FUNC_DEBUG
-    printf("rand_0\n");
-#endif
-    return rand();
 }
 
 double rand_1(double args[], int length) {

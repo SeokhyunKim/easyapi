@@ -16,9 +16,9 @@ public:
     int getNumThreads() const { return _numThreads; }
     bool isTestRun() const { return _isTestRun; }
     int getTimeOut() const { return _timeOut; }
-    std::string getInputFormat() const { return _inputFormat; }
     std::string getOutputFormat() const { return _outputFormat; }
     std::string toString() const;
+    int getCallCount() const { return _callCount; }
 
 private:
     void parseArguments(int argc, char* argv[]);
@@ -35,8 +35,8 @@ private:
     int _numThreads;
     bool _isTestRun;
     int _timeOut;
-    std::string _inputFormat;
     std::string _outputFormat;
+    int _callCount;
 
 };
 

@@ -15,9 +15,9 @@ string ParseArguments::toString() const {
         "data file name: " + _dataFileName + "\n" +
         "num threads: " + ::to_string(_numThreads) + "\n" +
         "is test run: " + (_isTestRun ? "true" : "false") + "\n" +
-        "input format: " + _inputFormat + "\n" +
         "output format: " + _outputFormat + "\n" +
-        "time out: " + ::to_string(_timeOut) + "\n";
+        "time out: " + ::to_string(_timeOut) + "\n" +
+        "call count: " + ::to_string(_callCount);
 }
 
 void ParseArguments::parseArguments(int argc, char* argv[]) {
@@ -28,9 +28,9 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _dataFileName = "";
     _numThreads = 1;
     _isTestRun = false;
-    _inputFormat = "json";
     _outputFormat = "json";
     _timeOut = 0;
+    _callCount = 1;
 
     // update optional parameters and get vector of mandatory ones
     vector<string> arguments = extractOptionalArguments(argc, argv);
@@ -50,7 +50,7 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
     int cur = 1;
     while (cur < argc) {
         string arg(argv[cur]);
-        if (0 == arg.compare("-f") || 0 == arg.compare("--data-file")) {
+        if (0 == arg.compare("-f") || 0 == arg.compare("--file")) {
             if (++cur < argc) {
                 _dataFileName = argv[cur];
             }
@@ -67,6 +67,10 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
         } else if (0 == arg.compare("-of") || 0 == arg.compare("--output-format")) {
             if (++cur < argc) {
                 _outputFormat = argv[cur];
+            }
+        } else if (0 == arg.compare("-cc") || 0 == arg.compare("--call-count")) {
+            if (++cur < argc) {
+                _callCount = atoi(argv[cur]);
             }
         } else {
             arguments.push_back(arg);

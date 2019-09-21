@@ -18,6 +18,8 @@ public:
     int getTimeOut() const { return _timeOut; }
     std::string getInputFormat() const { return _inputFormat; }
     std::string getOutputFormat() const { return _outputFormat; }
+    std::string getDelimiters() const { return _delimiters; }
+    bool isForceRun() const { return _isForceRun; }
     std::string toString() const;
 
 private:
@@ -37,6 +39,8 @@ private:
     int _timeOut;
     std::string _inputFormat;
     std::string _outputFormat;
+    std::string _delimiters;
+    bool _isForceRun;
 
 };
 

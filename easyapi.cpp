@@ -58,7 +58,7 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
         string line = lines[i];
         string pathTemplate = pa.getUrl();
         string varjsonTemplate = pa.getData();
-        vector<string> tokens = tokenizeCSVLine(line);
+        vector<string> tokens = tokenizeCSVLine(line, pa.getDelimiters());
         string variables_string;
         bool isDataFine = true;
         for (int i=0; i<variables.size(); ++i) {
@@ -138,7 +138,7 @@ void processMultipleApiCalls(const ParseArguments& pa,
     // check whether the first line of data_file is matched with given variables;
     string firstLine;
     getline(variableData, firstLine);
-    vector<string> firstLineVariables = tokenizeCSVLine(firstLine);
+    vector<string> firstLineVariables = tokenizeCSVLine(firstLine, pa.getDelimiters());
     vector<string> variables(pathVariables.begin(), pathVariables.end());
     variables.insert(variables.begin(), dataVariables.begin(), dataVariables.end());
     if (!isSame(variables, firstLineVariables)) {
@@ -159,12 +159,14 @@ void processMultipleApiCalls(const ParseArguments& pa,
        cout << var << " ";
     }
     cout << endl;
-    cout << "The first line of the data file: " << firstLine << endl;
-    cout << endl << "Everything is looking good? (y/n) ";
-    char isProceed;
-    cin >> isProceed;
-    if (isProceed != 'y' && isProceed != 'Y') {
-        return;
+    if (!pa.isForceRun()) {
+        cout << "The first line of the data file: " << firstLine << endl;
+        cout << endl << "Everything is looking good? (y/n) ";
+        char isProceed;
+        cin >> isProceed;
+        if (isProceed != 'y' && isProceed != 'Y') {
+            return;
+        }
     }
 
     // divide chuncks by numThreads and launch workers
@@ -257,6 +259,8 @@ int main(int argc, char* argv[]) {
         cout << "  --num-threads or -nt" << "\t" << "Number of threads used for making multiple calls with multiple threads" << endl;
         cout << "  --output-format or -ot" << "\t" <<"Output format. Default is json. Currently, if a string other than json is given, just printing out whatever received." << endl;
         cout << "  --time-out or -to" << "\t" << "Time out in milliseconds. Default is 0 which means no time out." << endl;
+        cout << "  --delimiters or -d" << "\t" << "Defile a delimiter. Default is space and comma (\" ,\")." << endl;
+        cout << "  --force-run or -fr" << "\t" << "Forced run. If this option is set, not asking to check input parameters. So, please be very cautious when using this option." << endl;
         return 0;
     }
 

@@ -22,12 +22,12 @@ vector<string> extractVariables(const string& templateStr) {
     return variables;
 }
 
-vector<string> tokenizeCSVLine(string line) {
+vector<string> tokenizeCSVLine(string line, const string& delimiters) {
     char* lineary = (char*)line.c_str();
     char* token;
     char* rest = lineary;
     vector<string> tokens;
-    while ((token = strtok_r(rest, " ,", &rest))) {
+    while ((token = strtok_r(rest, delimiters.c_str(), &rest))) {
             tokens.push_back(string(token));
     }
     return tokens;

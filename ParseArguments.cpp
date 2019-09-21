@@ -17,7 +17,9 @@ string ParseArguments::toString() const {
         "is test run: " + (_isTestRun ? "true" : "false") + "\n" +
         "input format: " + _inputFormat + "\n" +
         "output format: " + _outputFormat + "\n" +
-        "time out: " + ::to_string(_timeOut) + "\n";
+        "time out: " + ::to_string(_timeOut) + "\n" +
+        "delimiters: " + _delimiters + "\n" +
+        "is force run: " + (_isForceRun ? "true" : "false");
 }
 
 void ParseArguments::parseArguments(int argc, char* argv[]) {
@@ -30,6 +32,8 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _isTestRun = false;
     _inputFormat = "json";
     _outputFormat = "json";
+    _delimiters = " ,";
+    _isForceRun = false;
     _timeOut = 0;
 
     // update optional parameters and get vector of mandatory ones
@@ -68,6 +72,12 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
             if (++cur < argc) {
                 _outputFormat = argv[cur];
             }
+        } else if (0 == arg.compare("-d") || 0 == arg.compare("--delimiters")) {
+            if (++cur < argc) {
+                _delimiters = argv[cur];
+            }
+        } else if (0 == arg.compare("-fr") || 0 == arg.compare("--force-run")) {
+            _isForceRun = true;
         } else {
             arguments.push_back(arg);
         }

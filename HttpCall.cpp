@@ -5,7 +5,7 @@
 
 using namespace std;
 
-#define READ_BUFFER_SIZE    (1024*10)
+#define READ_BUFFER_SIZE    (1024*100)
 
 struct WriteData {
     char buffer[READ_BUFFER_SIZE];
@@ -101,7 +101,7 @@ HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& u
     HttpCallResponse response;
     if(res != CURLE_OK) {
         response.code = -1;
-        response.response = "Failed to make a http call.";
+        response.response = "Failed to make a http call. Curl error message: " + string(curl_easy_strerror(res)) + ".";
     } else {
         long response_code;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);

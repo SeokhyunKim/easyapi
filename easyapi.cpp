@@ -51,8 +51,7 @@ void processSingleApiCall(const ParseArguments& pa) {
 // api call thread worker
 void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
                    const vector<string>& lines, const vector<string>& variables, int start, int end,
-                   int& callCount, long& elappsedTime,
-                   BufferedPrint& bufferedPrint) {
+                   int& callCount, long& elappsedTime, BufferedPrint& bufferedPrint) {
     int key = httpCall.createKey();
     for (int i=start; i<end; ++i) {
         string line = lines[i];
@@ -95,6 +94,27 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
             bufferedPrint.println(inputVars + "Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
+        }
+        callCount += 1;
+    }
+}
+
+// api call thread worker
+void apiCallWorker2(const ParseArguments& pa, HttpCall& httpCall, int numCalls,
+                   int& callCount, long& elappsedTime, BufferedPrint& bufferedPrint) {
+    int key = httpCall.createKey();
+    string path = pa.getUrl();
+    string data = pa.getData();
+    while (numCalls-- > 0) {
+        if (pa.isTestRun()) {
+            bufferedPrint.println(getTestCommand(pa.getMethod(), path, data));
+        } else {
+            auto start = high_resolution_clock::now();
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), path, data, pa.getTimeOut());
+            auto stop = high_resolution_clock::now();
+            auto duration = duration_cast<milliseconds>(stop - start);
+            elappsedTime += duration.count();
+            bufferedPrint.println("Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
         }
         callCount += 1;
     }
@@ -207,6 +227,64 @@ void processMultipleApiCalls(const ParseArguments& pa,
     bufferedPrint.flush();
 }
 
+void processMultipleApiCalls(const ParseArguments& pa) {
+    HttpCall httpCall;
+
+    if (pa.getNumApiCalls() < 1) {
+        cout << "Number of api calls is less than 1. Aborting." << endl;
+        return;
+    }
+
+    // print parameters before executing multiple threads for making lots of api calls.
+    cout << "Number of api calls: " << pa.getNumApiCalls() << endl;
+    cout << "Number of threads: " << pa.getNumThreads() << endl << endl;
+    if (!pa.isForceRun()) {
+        cout << "Everything is looking good? (y/n) ";
+        char isProceed;
+        cin >> isProceed;
+        if (isProceed != 'y' && isProceed != 'Y') {
+            return;
+        }
+    }
+
+    // divide chuncks by numThreads and launch workers
+    long callCountsPerThread = (long)ceil((double)pa.getNumApiCalls() / pa.getNumThreads());
+    if (callCountsPerThread <= 0l) {
+        cout << "Too many threads. Number of api calls: " << pa.getNumApiCalls() << ", Thread number: " << pa.getNumThreads() << endl;
+        return;
+    }
+
+    // starting threads for multiple api calls
+    vector<thread> threads;
+    vector<int> callCounts(pa.getNumThreads());
+    vector<long> elappsedTimes(pa.getNumThreads());
+    BufferedPrint bufferedPrint(2048);
+    for (int i=0; i<pa.getNumThreads(); ++i) {
+        callCounts.push_back(0);
+        elappsedTimes.push_back(0l);
+        long start = i*callCountsPerThread;
+        long end = std::min((i+1)*callCountsPerThread, (long)pa.getNumApiCalls());
+        bufferedPrint.println("thread no " + to_string(i) + ", num api calls: " + to_string(end-start));
+        threads.push_back(thread(apiCallWorker2, ref(pa), ref(httpCall), (int)(end - start + 1),
+                                 ref(callCounts[i]), ref(elappsedTimes[i]), ref(bufferedPrint)));
+    }
+    // This is for printing out call counts per second
+    bool isDone = false;
+    thread callCountWorker;
+    if (!pa.isTestRun()) {
+        callCountWorker = thread(latencyChecker, ref(callCounts), ref(elappsedTimes), ref(isDone), ref(bufferedPrint));
+    }
+    // joining worker threads
+    for (auto& th : threads) {
+        th.join();
+    }
+    isDone = true;
+    if (callCountWorker.joinable()) {
+        callCountWorker.join();
+    }
+    bufferedPrint.flush();
+}
+
 void run_easyapi(int argc, char*argv[]) {
     ParseArguments pa(argc, argv);
     if (pa.getMethod() == UNDEFINED) {
@@ -218,17 +296,21 @@ void run_easyapi(int argc, char*argv[]) {
     vector<string> pathVariables = extractVariables(pa.getUrl());
     vector<string> dataVariables = extractVariables(pa.getData());
 
-    if (pathVariables.empty() && dataVariables.empty()) {
+    if (pathVariables.empty() && dataVariables.empty() && pa.getNumApiCalls() < 1) {
         processSingleApiCall(pa);
     } else {
         // todo: add test to check existence of the file
-        if (pa.getDataFileName().empty()) {
+        if (pa.getDataFileName().empty() && pa.getNumApiCalls() < 1) {
             cout << "Variables are used, but data file is not given." << endl;
             cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
             return;
         }
-        fstream variableData(pa.getDataFileName());
-        processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
+        if (!pathVariables.empty()) {
+            fstream variableData(pa.getDataFileName());
+            processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
+        } else {
+            processMultipleApiCalls(pa);
+        }
     }
     return;
 }
@@ -261,6 +343,7 @@ int main(int argc, char* argv[]) {
         cout << "  --time-out or -to" << "\t" << "Time out in milliseconds. Default is 0 which means no time out." << endl;
         cout << "  --delimiters or -d" << "\t" << "Defile a delimiter. Default is space and comma (\" ,\")." << endl;
         cout << "  --force-run or -fr" << "\t" << "Forced run. If this option is set, not asking to check input parameters. So, please be very cautious when using this option." << endl;
+        cout << "  --num-api-calls or -nc" << "\t" << "The number of api calls. When data-file is not set and this is greater than zero, api calls will be repeated by this parameter." << endl;
         return 0;
     }
 

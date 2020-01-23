@@ -21,6 +21,7 @@ public:
     std::string getDelimiters() const { return _delimiters; }
     bool isForceRun() const { return _isForceRun; }
     std::string toString() const;
+    int getNumApiCalls() const { return _numApiCalls; }
 
 private:
     void parseArguments(int argc, char* argv[]);
@@ -41,6 +42,7 @@ private:
     std::string _outputFormat;
     std::string _delimiters;
     bool _isForceRun;
+    int _numApiCalls;
 
 };
 

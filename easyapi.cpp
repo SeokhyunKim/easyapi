@@ -305,7 +305,7 @@ void run_easyapi(int argc, char*argv[]) {
             cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
             return;
         }
-        if (!pathVariables.empty()) {
+        if (!pathVariables.empty() || !dataVariables.empty()) {
             fstream variableData(pa.getDataFileName());
             processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
         } else {

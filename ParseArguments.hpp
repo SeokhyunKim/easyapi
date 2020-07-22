@@ -22,6 +22,7 @@ public:
     bool isForceRun() const { return _isForceRun; }
     std::string toString() const;
     int getNumApiCalls() const { return _numApiCalls; }
+    bool isSns() const { return _isSns; }
 
 private:
     void parseArguments(int argc, char* argv[]);
@@ -43,6 +44,7 @@ private:
     std::string _delimiters;
     bool _isForceRun;
     int _numApiCalls;
+    bool _isSns;
 
 };
 

@@ -20,7 +20,8 @@ string ParseArguments::toString() const {
         "time out: " + ::to_string(_timeOut) + "\n" +
         "delimiters: " + _delimiters + "\n" +
         "is force run: " + (_isForceRun ? "true" : "false") + "\n" +
-        "num api calls: " + ::to_string(_numApiCalls);
+        "num api calls: " + ::to_string(_numApiCalls) + "\n" +
+        "is sns: " + (_isSns ? "true" : "false");
 }
 
 void ParseArguments::parseArguments(int argc, char* argv[]) {
@@ -37,6 +38,7 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _isForceRun = false;
     _timeOut = 0;
     _numApiCalls = 0;
+    _isSns = false;
 
     // update optional parameters and get vector of mandatory ones
     vector<string> arguments = extractOptionalArguments(argc, argv);
@@ -84,6 +86,8 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
             if (++cur < argc) {
                 _numApiCalls = atoi(argv[cur]);
             }
+        } else if (0 == arg.compare("-s") || 0 == arg.compare("--sns")) {
+            _isSns = true;
         } else {
             arguments.push_back(arg);
         }

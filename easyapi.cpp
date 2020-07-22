@@ -44,7 +44,7 @@ void processSingleApiCall(const ParseArguments& pa) {
     }
     HttpCall httpCall;
     int key = httpCall.createKey();
-    HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData(), pa.getTimeOut());
+    HttpCallResponse response = httpCall.call(key, pa.getMethod(), pa.getUrl(), pa.getData(), pa.getTimeOut(), pa.isSns());
     cout << getHttpCallResponse(response, pa.getOutputFormat()) << endl;
 }
 
@@ -89,7 +89,7 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
             bufferedPrint.println(inputVars + getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate));
         } else {
             auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut());
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut(), pa.isSns());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
@@ -110,7 +110,7 @@ void apiCallWorker2(const ParseArguments& pa, HttpCall& httpCall, int numCalls,
             bufferedPrint.println(getTestCommand(pa.getMethod(), path, data));
         } else {
             auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), path, data, pa.getTimeOut());
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), path, data, pa.getTimeOut(), pa.isSns());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
@@ -167,7 +167,7 @@ void processMultipleApiCalls(const ParseArguments& pa,
     }
     // read lines from data_file, show configuration, and getting confirmation to go forward
     string line;
-    vector<string> lines; 
+    vector<string> lines;
     while (getline(variableData, line)) {
         lines.push_back(line);
     }
@@ -344,6 +344,7 @@ int main(int argc, char* argv[]) {
         cout << "  --delimiters or -d" << "\t" << "Defile a delimiter. Default is space and comma (\" ,\")." << endl;
         cout << "  --force-run or -fr" << "\t" << "Forced run. If this option is set, not asking to check input parameters. So, please be very cautious when using this option." << endl;
         cout << "  --num-api-calls or -nc" << "\t" << "The number of api calls. When data-file is not set and this is greater than zero, api calls will be repeated by this parameter." << endl;
+        cout << "  --sns or -s" << "\t" << "For SnS API calls. All SnS APIs require sepcific headers." << endl;
         return 0;
     }
 

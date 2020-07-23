@@ -10,6 +10,8 @@
 ### Above combination will ignore all files without extension ###
 
 build/
+debug/
+release/
 target/
 .idea/
 java_practices.iml

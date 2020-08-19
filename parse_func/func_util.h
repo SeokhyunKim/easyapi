@@ -21,6 +21,8 @@ int add_arg(double d);
 
 struct func_call_result eval_func_call(char* func_name);
 
+void debug_output(char* str);
+
 #ifdef __cplusplus
 }
 #endif

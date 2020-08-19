@@ -22,7 +22,8 @@ using namespace std;
 using namespace std::chrono;
 using json = nlohmann::json;
 
-string getHttpCallResponse(HttpCallResponse& response, const string& outputFormat) {
+string getHttpCallResponse(
+    HttpCallResponse& response, const string& outputFormat) {
     if (response.code == 200l && 0 == outputFormat.compare("json")) {
         json j = json::parse(response.response);
         return j.dump(4);
@@ -32,7 +33,8 @@ string getHttpCallResponse(HttpCallResponse& response, const string& outputForma
     return response.response;
 }
 
-string getTestCommand(HttpMethod method, const string& url, const string& data) {
+string getTestCommand(HttpMethod method, const string& url,
+                      const string& data) {
     if (!data.empty()) {
         return "easyapi " + ::toString(method) + " " + url + " " + data;
     }
@@ -50,15 +52,15 @@ void processSingleApiCall(const ParseArguments& pa) {
     cout << getHttpCallResponse(response, pa.getOutputFormat()) << endl;
 }
 
-string replaceTemplateVariables(const string& templateInput, const vector<string>& variables,
-                                const unordered_map<string, int>& varIndices, const vector<string>& tokens,
-                                string& variables_string) {
+string replaceTemplateVariables(
+	const string& templateInput, const vector<string>& variables,
+	const unordered_map<string, int>& varIndices, const vector<string>& tokens,
+        string& variables_string) {
     string replacedTemplate = templateInput;
     for (const string& var : variables) {
         string replacement = "${" + var + "}";
         string value;
         if (var[0] == '=') {
-            cout << "about to parse_func: " << var << endl;
             long result = parse_func(var.c_str());
             if (!is_parse_func_succeeded()) {
                 cout << "Failed to evaluate this function: " << var << endl;
@@ -77,8 +79,11 @@ string replaceTemplateVariables(const string& templateInput, const vector<string
 
 // api call thread worker
 void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
-                   const vector<string>& lines, const vector<string>& pathVariables, const vector<string>& dataVariables,
-                   const unordered_map<string, int>& varIndices, int start, int end, int& callCount, long& elappsedTime,
+                   const vector<string>& lines,
+                   const vector<string>& pathVariables,
+                   const vector<string>& dataVariables,
+                   const unordered_map<string, int>& varIndices,
+                   int start, int end, int& callCount, long& elappsedTime,
                    BufferedPrint& bufferedPrint) {
     int key = httpCall.createKey();
     for (int i=start; i<end; ++i) {
@@ -249,8 +254,6 @@ void run_easyapi(int argc, char*argv[]) {
     }
 
     vector<string> pathVariables = extractVariables(pa.getUrl());
-    for_each(pathVariables.begin(), pathVariables.end(), [](const string& var) { cout << var << " "; });
-    cout << endl;
     vector<string> dataVariables = extractVariables(pa.getData());
 
     if (pathVariables.empty() && dataVariables.empty()) {

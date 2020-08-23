@@ -68,8 +68,8 @@ string replaceTemplateVariables(
             }
             value = to_string(result);
         } else {
-            variables_string += var + " ";
             value = tokens[varIndices.at(var)];
+            variables_string += value + " ";
         }
         size_t pos= replacedTemplate.find(replacement);
         replacedTemplate.replace(pos, replacement.size(), value); // pos should be valid
@@ -380,8 +380,8 @@ int main(int argc, char* argv[]) {
         cout << "  # rand(x) will generate random integer between 0 and x (exclusive). rand(a, b) will generate a random integer between a and b." << endl;
         cout << "  easyapi get http://blabla.com/api/test/${=rand(10, 20)}" << endl;
         cout << "  easyapi put http://blabla.com/api/test/${=rand(100)}" << endl;
-        cout << "  # can define --call-count (or -ct) to define number of calls when only random parameter is used." << endl;
-        cout << "  easyapi get http://blabla.com/api/test/${=rand(10, 20)} --call-count 100" << endl;
+        cout << "  # can define --num-api-calls (or -nc) to define number of calls when only random parameter is used." << endl;
+        cout << "  easyapi get http://blabla.com/api/test/${=rand(10, 20)} --num-api-calls 100" << endl;
         cout << "  # easyapi print out average api call latency. So, you can use easyapi for casual performance test with random parameters!" << endl << endl;
         cout << "- Optional parameters" << endl;
         cout << "  --file or -f" << "\t" << "Data file name containing list of path and data variables at the first line, and real datas in following lines." << endl;

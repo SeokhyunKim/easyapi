@@ -9,6 +9,8 @@ ParseArguments::ParseArguments(int argc, char* argv[]) {
 }
 
 string ParseArguments::toString() const {
+    string headers;
+    for (const auto& header : _headers) headers += header + " ";
     return "http method: " + ::toString(_httpMethod) + "\n" +
         "url: " + _url + "\n" +
         "data: " + _data + "\n" +
@@ -20,7 +22,7 @@ string ParseArguments::toString() const {
         "delimiters: " + _delimiters + "\n" +
         "is force run: " + (_isForceRun ? "true" : "false") + "\n" +
         "num api calls: " + ::to_string(_numApiCalls) + "\n" +
-        "is sns: " + (_isSns ? "true" : "false");
+        "headers: " + headers;
 }
 
 void ParseArguments::parseArguments(int argc, char* argv[]) {
@@ -36,7 +38,7 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _isForceRun = false;
     _timeOut = 0;
     _numApiCalls = 0;
-    _isSns = false;
+    _headers.clear();
 
     // update optional parameters and get vector of mandatory ones
     vector<string> arguments = extractOptionalArguments(argc, argv);
@@ -84,8 +86,10 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
             if (++cur < argc) {
                 _numApiCalls = atoi(argv[cur]);
             }
-        } else if (0 == arg.compare("-s") || 0 == arg.compare("--sns")) {
-            _isSns = true;
+        } else if (0 == arg.compare("-h") || 0 == arg.compare("--header")) {
+            if (++cur < argc) {
+                _headers.push_back(string(argv[cur]));
+            }
         } else {
             arguments.push_back(arg);
         }

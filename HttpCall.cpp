@@ -80,7 +80,8 @@ void HttpCall::deleteKey(int key) {
     curls[key] = nullptr;
 }
 
-HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& url, const std::string& data, int timeOut, bool isSns) const {
+HttpCallResponse HttpCall::call(int key, HttpMethod method, const vector<string>& headers,
+                                const std::string& url, const std::string& data, int timeOut) const {
     CURL* curl = getCurl(key);
     if (curl == nullptr) {
         HttpCallResponse response;
@@ -88,7 +89,7 @@ HttpCallResponse HttpCall::call(int key, HttpMethod method, const std::string& u
         response.response = "Failed to initialize libcurl.";
         return response;
     }
-    if (!setOptions(curl, method, url, data, timeOut, isSns)) {
+    if (!setOptions(curl, method, headers, url, data, timeOut)) {
         HttpCallResponse response;
         response.code = -1;
         response.response = "Failed to set options.";
@@ -118,7 +119,8 @@ CURL* HttpCall::getCurl(int key) const {
     return curls[key];
 }
 
-bool HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, const string& data, int timeOut, bool isSns) const {
+bool HttpCall::setOptions(CURL* curl, HttpMethod method, const vector<string>& customHeaders,
+                          const string& url, const string& data, int timeOut) const {
     curl_easy_reset(curl);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCall::write_callback);
@@ -142,8 +144,8 @@ bool HttpCall::setOptions(CURL* curl, HttpMethod method, const string& url, cons
         //todo: will add other content type support later
         struct curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/json");
-        if (isSns) {
-            curl_slist_append(headers, "vitamin-racl-token: vitamin-racl-token");
+        for (auto& customHeader : customHeaders) {
+            headers = curl_slist_append(headers, customHeader.c_str());
         }
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());

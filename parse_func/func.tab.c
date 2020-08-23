@@ -81,7 +81,7 @@
 #line 1 "func.y"
 
 /* Bison can generate c++ code. But, I would do that later. */
-#include "eval_func.h"
+#include "parse_func.h"
 #include "func_util.h"
 #include <string.h>
 #include <stdio.h>
@@ -412,7 +412,7 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    25,    25,    27,    35,    36,    37,    39
+       0,    25,    25,    27,    36,    37,    38,    40
 };
 #endif
 
@@ -1318,23 +1318,24 @@ yyreduce:
 
   case 3:
 #line 27 "func.y"
-    { struct func_call_result result = eval_func_call((yyvsp[(1) - (4)].str));
-                                              if (result.is_success != 1) {
-                                                yyerror("failed to evaluate function\n");
-                                              } else {
-                                                (yyval.num) = result.value;
-                                              }
+    {
+                                                struct func_call_result result = eval_func_call((yyvsp[(1) - (4)].str));
+                                                if (result.is_success != 1) {
+                                               		yyerror("failed to evaluate function\n");
+                                            	} else {
+                                               		(yyval.num) = result.value;
+                                              	}
                                             ;}
     break;
 
   case 7:
-#line 39 "func.y"
+#line 40 "func.y"
     { add_arg((yyvsp[(1) - (1)].num)); ;}
     break;
 
 
 /* Line 1267 of yacc.c.  */
-#line 1338 "func.tab.c"
+#line 1339 "func.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1548,7 +1549,7 @@ yyreturn:
 }
 
 
-#line 44 "func.y"
+#line 45 "func.y"
 
 
 void yyerror(char* s) {
@@ -1559,16 +1560,16 @@ char* get_error_message() {
     return error_message;
 }
 
-int is_evaluation_succeeded() {
+int is_parse_func_succeeded() {
     if (error_message[0] == '\0') {
         return 1;
     }
     return 0;
 }
 
-long evaluate_function(char* str) {
+long parse_func(const char* str) {
+    clear_func_call();
     yy_scan_string(str);
-    init_func_call();
     error_message[0] = '\0';
     yyparse();
     /* currently, casting double to int. will consider different evaluation type later, if needed */

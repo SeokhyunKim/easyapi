@@ -16,7 +16,6 @@ public:
     int getNumThreads() const { return _numThreads; }
     bool isTestRun() const { return _isTestRun; }
     int getTimeOut() const { return _timeOut; }
-    std::string getInputFormat() const { return _inputFormat; }
     std::string getOutputFormat() const { return _outputFormat; }
     std::string getDelimiters() const { return _delimiters; }
     bool isForceRun() const { return _isForceRun; }
@@ -39,13 +38,11 @@ private:
     int _numThreads;
     bool _isTestRun;
     int _timeOut;
-    std::string _inputFormat;
     std::string _outputFormat;
     std::string _delimiters;
     bool _isForceRun;
     int _numApiCalls;
     bool _isSns;
-
 };
 
 #endif

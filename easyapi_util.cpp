@@ -13,7 +13,7 @@ vector<string> extractVariables(const string& templateStr) {
         size_t endPos = templateStr.find("}", pos + 2);
         if (endPos != string::npos && (endPos - pos - 2 > 0)) {
             string var = trim(templateStr.substr(pos + 2, endPos - pos - 2));
-            if (!var.empty() && var.at(0) != '=') {
+            if (!var.empty()) {
                 variables.push_back(var);
             }
         }
@@ -33,6 +33,17 @@ vector<string> tokenizeCSVLine(string line, const string& delimiters) {
     return tokens;
 }
 
+vector<string> removeFunctions(const vector<string>& vec) {
+    vector<string> removed;
+    for (auto& str : vec) {
+        if (str.length() <= 0 || str[0] == '=') {
+            continue;
+        }
+        removed.push_back(str);
+    }
+    return removed;
+}
+
 bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
     if (vec1.size() != vec2.size()) {
         return false;
@@ -50,6 +61,11 @@ bool isSame(const vector<string>& vec1, const vector<string>& vec2) {
         }
     }
     return true;
+}
+
+int getNumVariablesExceptFunctions(const vector<std::string>& vec) {
+    vector<string> vecExceptFunctions = removeFunctions(vec);
+    return vecExceptFunctions.size();
 }
 
 string trim(string const& str)

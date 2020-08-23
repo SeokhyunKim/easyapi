@@ -15,7 +15,6 @@ string ParseArguments::toString() const {
         "data file name: " + _dataFileName + "\n" +
         "num threads: " + ::to_string(_numThreads) + "\n" +
         "is test run: " + (_isTestRun ? "true" : "false") + "\n" +
-        "input format: " + _inputFormat + "\n" +
         "output format: " + _outputFormat + "\n" +
         "time out: " + ::to_string(_timeOut) + "\n" +
         "delimiters: " + _delimiters + "\n" +
@@ -32,7 +31,6 @@ void ParseArguments::parseArguments(int argc, char* argv[]) {
     _dataFileName = "";
     _numThreads = 1;
     _isTestRun = false;
-    _inputFormat = "json";
     _outputFormat = "json";
     _delimiters = " ,";
     _isForceRun = false;
@@ -58,7 +56,7 @@ vector<string> ParseArguments::extractOptionalArguments(int argc, char* argv[]) 
     int cur = 1;
     while (cur < argc) {
         string arg(argv[cur]);
-        if (0 == arg.compare("-f") || 0 == arg.compare("--data-file")) {
+        if (0 == arg.compare("-f") || 0 == arg.compare("--file")) {
             if (++cur < argc) {
                 _dataFileName = argv[cur];
             }

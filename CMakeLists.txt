@@ -18,7 +18,7 @@ find_package(nlohmann_json 3.4.0 REQUIRED)
 
 include_directories(${CURL_INCLUDE_DIR})
 
-add_subdirectory(eval_func)
+add_subdirectory(parse_func)
 
 add_library(easyapi_utils HttpCall.cpp ParseArguments.cpp easyapi_util.cpp BufferedPrint.cpp)
 add_executable(easyapi easyapi.cpp)

@@ -7,7 +7,7 @@
 #define FUNC_NAME_LENGTH    100
 #define NUM_ARGUMENTS       10
 
-/*#define _FUNC_DEBUG*/
+#undef _FUNC_DEBUG
 
 struct {
     char func_name[FUNC_NAME_LENGTH];
@@ -26,7 +26,6 @@ struct {
     int num_arguments;
     FUNC func_ptr;
 } funcs[] = {
-    { "rand", 0, rand_0 },
     { "rand", 1, rand_1 },
     { "rand", 2, rand_2 }
 };
@@ -58,6 +57,9 @@ struct func_call_result eval_func_call(char* s) {
     for (int i=0; i<numFuncs; ++i) {
         if (0 == strcmp(func_call.func_name, funcs[i].func_name) &&
             func_call.num_arguments == funcs[i].num_arguments) {
+#ifdef _FUNC_DEBUG
+    	    printf("func call: %s, %d\n", func_call.func_name, func_call.num_arguments);
+#endif
             double value = (*(funcs[i].func_ptr))(func_call.arguments, func_call.num_arguments);
             struct func_call_result result = { 1, value };
             return result;
@@ -70,17 +72,13 @@ struct func_call_result eval_func_call(char* s) {
 
 double rand_ratio() {
     int r = rand();
+#ifdef _FUNC_DEBUG
+    printf("rand num: %d\n", r);
+#endif
     if (r >= RAND_MAX) {
         r -= 1;
     }
     return (double)r / RAND_MAX;
-}
-
-double rand_0(double args[], int length) {
-#ifdef _FUNC_DEBUG
-    printf("rand_0\n");
-#endif
-    return rand();
 }
 
 double rand_1(double args[], int length) {
@@ -96,4 +94,8 @@ double rand_2(double args[], int length) {
 #endif
     double len = args[1] - args[0];
     return rand_ratio() * len + args[0];
+}
+
+void debug_output(char* str) {
+	printf("%s\n", str);
 }

@@ -1,6 +1,6 @@
 %{
 /* Bison can generate c++ code. But, I would do that later. */
-#include "eval_func.h"
+#include "parse_func.h"
 #include "func_util.h"
 #include <string.h>
 #include <stdio.h>
@@ -22,24 +22,25 @@ double evaluation_result;
 
 %%
 
-statement	: '=' func						{ evaluation_result = $2; }
-			;
-func		: identifier '(' arg_list ')'	{ struct func_call_result result = eval_func_call($1);
-                                              if (result.is_success != 1) {
-                                                yyerror("failed to evaluate function\n");
-                                              } else {
-                                                $$ = result.value;
-                                              }
+statement	: '=' func			{ evaluation_result = $2; }
+		;
+func		: identifier '(' arg_list ')'	{
+                                                struct func_call_result result = eval_func_call($1);
+                                                if (result.is_success != 1) {
+                                               		yyerror("failed to evaluate function\n");
+                                            	} else {
+                                               		$$ = result.value;
+                                              	}
                                             }
-			;
+		;
 arg_list	: /* empty */ 
-            | arg_list ',' arg				;
-			| arg							;
-			;
-arg			: number						{ add_arg($1); }
-            /* want to extend to support func call for getting an argument later. To do this, func_util should be extended.
-			| func							{ add_arg($1); } */
-            ;
+		| arg_list ',' arg
+		| arg
+		;
+arg		: number			{ add_arg($1); }
+          /* want to extend to support func call for getting an argument later. To do this, func_util should be extended.
+		| func							{ add_arg($1); } */
+            	;
 
 %%
 
@@ -51,16 +52,16 @@ char* get_error_message() {
     return error_message;
 }
 
-int is_evaluation_succeeded() {
+int is_parse_func_succeeded() {
     if (error_message[0] == '\0') {
         return 1;
     }
     return 0;
 }
 
-long evaluate_function(char* str) {
+long parse_func(const char* str) {
+    clear_func_call();
     yy_scan_string(str);
-    init_func_call();
     error_message[0] = '\0';
     yyparse();
     /* currently, casting double to int. will consider different evaluation type later, if needed */

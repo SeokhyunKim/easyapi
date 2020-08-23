@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-long evaluate_function(char* str);
+long parse_func(const char* str);
 char* get_error_message();
-int is_evaluation_succeeded();
+int is_parse_func_succeeded();
 
 #ifdef __cplusplus
 }

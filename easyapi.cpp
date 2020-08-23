@@ -22,8 +22,8 @@ using namespace std;
 using namespace std::chrono;
 using json = nlohmann::json;
 
-string getHttpCallResponse(
-    HttpCallResponse& response, const string& outputFormat) {
+string getHttpCallResponse(HttpCallResponse& response,
+                           const string& outputFormat) {
     if (response.code == 200l && 0 == outputFormat.compare("json")) {
         json j = json::parse(response.response);
         return j.dump(4);
@@ -79,49 +79,21 @@ string replaceTemplateVariables(
 
 // api call thread worker
 void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
-<<<<<<< HEAD
-                   const vector<string>& lines, const vector<string>& variables, int start, int end,
-                   int& callCount, long& elappsedTime, BufferedPrint& bufferedPrint) {
-=======
                    const vector<string>& lines,
                    const vector<string>& pathVariables,
                    const vector<string>& dataVariables,
                    const unordered_map<string, int>& varIndices,
                    int start, int end, int& callCount, long& elappsedTime,
                    BufferedPrint& bufferedPrint) {
->>>>>>> add_function_support
     int key = httpCall.createKey();
     for (int i=start; i<end; ++i) {
         string pathTemplate = pa.getUrl();
-<<<<<<< HEAD
-        string varjsonTemplate = pa.getData();
-        vector<string> tokens = tokenizeCSVLine(line, pa.getDelimiters());
-        string variables_string;
-        bool isDataFine = true;
-        for (int i=0; i<variables.size(); ++i) {
-            string replacement = "${" + variables[i] + "}";
-            if (variables.size() > tokens.size()) {
-                isDataFine = false;
-                break;
-            }
-            string value = tokens[i];
-            variables_string += value + " ";
-            size_t pos1= pathTemplate.find(replacement);
-            if (pos1 != string::npos) {
-                pathTemplate.replace(pos1, replacement.size(), value);
-            }
-            size_t pos2 = varjsonTemplate.find(replacement);
-            if (pos2 != string::npos) {
-                varjsonTemplate.replace(pos2, replacement.size(), value);
-            }
-=======
         string dataTemplate = pa.getData();
         string line;
         vector<string> tokens;
         if (lines.size() > 0) {
             line = lines[i];
-            tokens = tokenizeCSVLine(line);
->>>>>>> add_function_support
+            tokens = tokenizeCSVLine(line, pa.getDelimiters());
         }
         string variables_string;
         string replacedPath = replaceTemplateVariables(pathTemplate, pathVariables, varIndices, tokens, variables_string);
@@ -130,16 +102,11 @@ void apiCallWorker(const ParseArguments& pa, HttpCall& httpCall,
         if (variables_string.length() > 0) {
             inputVars = "Input variables: " + variables_string + "\n";
         }
-<<<<<<< HEAD
-        string inputVars;
-        if (variables_string.length() > 0) {
-            inputVars = "Input variables: " + variables_string + "\n";
-        }
         if (pa.isTestRun()) {
-            bufferedPrint.println(inputVars + getTestCommand(pa.getMethod(), pathTemplate, varjsonTemplate));
+            bufferedPrint.println(inputVars + "Response:\n" + getTestCommand(pa.getMethod(), replacedPath, replacedData));
         } else {
             auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), pathTemplate, varjsonTemplate, pa.getTimeOut(), pa.isSns());
+            HttpCallResponse response = httpCall.call(key, pa.getMethod(), replacedPath, replacedData, pa.getTimeOut(), pa.isSns());
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
@@ -161,17 +128,11 @@ void apiCallWorker2(const ParseArguments& pa, HttpCall& httpCall, int numCalls,
         } else {
             auto start = high_resolution_clock::now();
             HttpCallResponse response = httpCall.call(key, pa.getMethod(), path, data, pa.getTimeOut(), pa.isSns());
-=======
-        if (pa.isTestRun()) {
-            bufferedPrint.println(inputVars + "Response:\n" + getTestCommand(pa.getMethod(), replacedPath, replacedData));
-        } else {
-            auto start = high_resolution_clock::now();
-            HttpCallResponse response = httpCall.call(key, pa.getMethod(), replacedPath, replacedData, pa.getTimeOut());
->>>>>>> add_function_support
             auto stop = high_resolution_clock::now();
             auto duration = duration_cast<milliseconds>(stop - start);
             elappsedTime += duration.count();
-            bufferedPrint.println(inputVars + "Response:\n" + getHttpCallResponse(response, pa.getOutputFormat()));
+            bufferedPrint.println("Response:\n" +
+                                  getHttpCallResponse(response, pa.getOutputFormat()));
         }
         callCount += 1;
     }
@@ -197,18 +158,10 @@ void latencyChecker(const vector<int>& callCounts, const vector<long>& elapsedTi
             continue;
         }
         double avgTime = (double)totalTime / totalCount;
-<<<<<<< HEAD
-        auto elapsed = duration_cast<milliseconds>(system_clock::now() - startTime).count();
+        auto elappsed = duration_cast<milliseconds>(system_clock::now() - startTime).count();
         bufferedPrint.println("Average time for api call: " + to_string(avgTime) +
                               " ms, Total call count: " + to_string(totalCount) +
-                              ", Total elapsed time: " + to_string(elapsed) +
-=======
-        auto currentTime = system_clock::now();
-        auto elapsedTime = duration_cast<milliseconds>(currentTime - startTime).count();
-        bufferedPrint.println("Average time for api call: " + to_string(avgTime) +
-                              " ms, Total call count: " + to_string(totalCount) +
-                              ", Elappsed time: " + to_string(elapsedTime) +
->>>>>>> add_function_support
+                              ", Total elappsed time: " + to_string(elappsed) +
                               " ms");
         last = current;
     }
@@ -227,21 +180,12 @@ void processMultipleApiCalls(const ParseArguments& pa,
 
     // check whether the first line of data_file is matched with given variables;
     string firstLine;
-<<<<<<< HEAD
-    getline(variableData, firstLine);
-    vector<string> firstLineVariables = tokenizeCSVLine(firstLine, pa.getDelimiters());
-    vector<string> variables(pathVariables.begin(), pathVariables.end());
-    variables.insert(variables.begin(), dataVariables.begin(), dataVariables.end());
-    if (!isSame(variables, firstLineVariables)) {
-        cout << "Variables of data-template and data-file are not matched" << endl;
-        return;
-=======
     vector<string> firstLineVariables;
     vector<string> variables;
     unordered_map<string, int> varIndices;
     if (variableData.is_open()) {
         getline(variableData, firstLine);
-        firstLineVariables = tokenizeCSVLine(firstLine);
+        firstLineVariables = tokenizeCSVLine(firstLine, pa.getDelimiters());
         int idx = 0;
         for (auto& var : firstLineVariables) {
             varIndices.insert(make_pair(var, idx++));
@@ -253,26 +197,20 @@ void processMultipleApiCalls(const ParseArguments& pa,
             cout << "Variables of data-template and data-file are not matched" << endl;
             return;
         }
->>>>>>> add_function_support
     }
     // read lines from data_file, show configuration, and getting confirmation to go forward
     string line;
     vector<string> lines;
-<<<<<<< HEAD
-    while (getline(variableData, line)) {
-        lines.push_back(line);
-=======
     if (variableData.is_open()) {
         while (getline(variableData, line)) {
             lines.push_back(line);
         }
->>>>>>> add_function_support
     }
     // print parameters before executing multiple threads for making lots of api calls.
     if (lines.size() > 0) {
         cout << "Number of data-file lines: " << lines.size() << endl;
     } else {
-        cout << "Call count: " << pa.getCallCount() << endl;
+        cout << "Call count: " << pa.getNumApiCalls() << endl;
     }
     cout << "Number of threads: " << pa.getNumThreads() << endl << endl;
     cout << "List of variables or built-in functions: ";
@@ -292,7 +230,7 @@ void processMultipleApiCalls(const ParseArguments& pa,
 
     // divide chuncks by numThreads and launch workers
     long chunkSize = 0l;
-    long callCount = std::max((long)lines.size(), (long)pa.getCallCount());
+    long callCount = std::max((long)lines.size(), (long)pa.getNumApiCalls());
     chunkSize = (long)ceil((double)callCount / pa.getNumThreads());
     if (chunkSize <= 0l) {
         cout << "Too many threads for call count.. Call count: " << callCount << ", Thread number: " << pa.getNumThreads() << endl;
@@ -405,27 +343,17 @@ void run_easyapi(int argc, char*argv[]) {
         int numPathVariables = getNumVariablesExceptFunctions(pathVariables);
         int numDataVariables = getNumVariablesExceptFunctions(dataVariables);
         // todo: add test to check existence of the file
-<<<<<<< HEAD
-        if (pa.getDataFileName().empty() && pa.getNumApiCalls() < 1) {
-=======
         if ((numPathVariables > 0 || numDataVariables > 0) && pa.getDataFileName().empty()) {
->>>>>>> add_function_support
             cout << "Variables are used, but data file is not given." << endl;
             cout << "To see usage, just type 'easyapi' or 'easyapi help'." << endl;
             return;
         }
-<<<<<<< HEAD
         if (!pathVariables.empty() || !dataVariables.empty()) {
-            fstream variableData(pa.getDataFileName());
-            processMultipleApiCalls(pa, pathVariables, dataVariables, variableData);
+            processMultipleApiCalls(pa, pathVariables, dataVariables);
         } else {
             processMultipleApiCalls(pa);
         }
-=======
-        processMultipleApiCalls(pa, pathVariables, dataVariables);
->>>>>>> add_function_support
     }
-    return;
 }
 
 int main(int argc, char* argv[]) {
@@ -461,14 +389,10 @@ int main(int argc, char* argv[]) {
         cout << "  --num-threads or -nt" << "\t" << "Number of threads used for making multiple calls with multiple threads" << endl;
         cout << "  --output-format or -of" << "\t" <<"Output format. Default is json. Currently, if a string other than json is given, just printing out whatever received." << endl;
         cout << "  --time-out or -to" << "\t" << "Time out in milliseconds. Default is 0 which means no time out." << endl;
-<<<<<<< HEAD
         cout << "  --delimiters or -d" << "\t" << "Defile a delimiter. Default is space and comma (\" ,\")." << endl;
         cout << "  --force-run or -fr" << "\t" << "Forced run. If this option is set, not asking to check input parameters. So, please be very cautious when using this option." << endl;
         cout << "  --num-api-calls or -nc" << "\t" << "The number of api calls. When data-file is not set and this is greater than zero, api calls will be repeated by this parameter." << endl;
         cout << "  --sns or -s" << "\t" << "For SnS API calls. All SnS APIs require sepcific headers." << endl;
-=======
-        cout << "  --call-count or -cc" << "\t" << "Define call counts. This is used when only random parameters are used. If template parameter and data file are given, this call-count is not used." << endl;
->>>>>>> add_function_support
         return 0;
     }
 

@@ -31,6 +31,10 @@ Get cmake.
 ```
 brew install cmake
 ```
+Get curl. Easyapi is depending on curl for making api calls.
+```
+brew install curl
+```
 Get nlohmann-json which is a nice json library used in easyapi.
 ```
 brew install nlohmann-json

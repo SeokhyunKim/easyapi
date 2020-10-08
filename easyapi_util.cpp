@@ -28,7 +28,7 @@ vector<string> tokenizeCSVLine(string line, const string& delimiters) {
     char* rest = lineary;
     vector<string> tokens;
     while ((token = strtok_r(rest, delimiters.c_str(), &rest))) {
-            tokens.push_back(string(token));
+        tokens.push_back(string(token));
     }
     return tokens;
 }

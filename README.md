@@ -40,9 +40,9 @@ Making directory for building easyapi. Let's try release version.
 mkdir release
 cd release
 ```
-Now, you're in release directory. Running cmake to make makefile and build. ;)
+Now, you're in release directory. Running cmake to make makefile and make easyapi. ;)
 ```
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
-That's it. You shuld be able to see your easyapi file at easyapi/release directory. Ad mentioned above, try 'easyapi -h' or just 'easyapi' to see how to use it.
+That's it. You shuld be able to see your easyapi file at easyapi/release directory. As mentioned above, try 'easyapi -h' or just 'easyapi' to see how to use it.

@@ -33,7 +33,7 @@ public:
 
 private:
     CURL* getCurl(int key) const;
-    bool setOptions(CURL* curl, HttpMethod method, const std::vector<std::string>& headers,
+    void setOptions(CURL* curl, HttpMethod method, const std::vector<std::string>& headers,
                     const std::string& url, const std::string& data="", int timeOut=0) const;
 
     static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata);

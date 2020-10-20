@@ -89,12 +89,7 @@ HttpCallResponse HttpCall::call(int key, HttpMethod method, const vector<string>
         response.response = "Failed to initialize libcurl.";
         return response;
     }
-    if (!setOptions(curl, method, headers, url, data, timeOut)) {
-        HttpCallResponse response;
-        response.code = -1;
-        response.response = "Failed to set options.";
-        return response;
-    }
+    setOptions(curl, method, headers, url, data, timeOut);
 
     WriteData writeData;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&writeData);
@@ -119,7 +114,7 @@ CURL* HttpCall::getCurl(int key) const {
     return curls[key];
 }
 
-bool HttpCall::setOptions(CURL* curl, HttpMethod method, const vector<string>& customHeaders,
+void HttpCall::setOptions(CURL* curl, HttpMethod method, const vector<string>& customHeaders,
                           const string& url, const string& data, int timeOut) const {
     curl_easy_reset(curl);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -133,14 +128,10 @@ bool HttpCall::setOptions(CURL* curl, HttpMethod method, const vector<string>& c
     }
 
     if (method == GET) {
-        return true;
+        return;
     }
 
-    if (method == POST) {
-        if (data.empty()) {
-            return false;
-        }
-
+    if (method == POST && !data.empty()) {
         //todo: will add other content type support later
         struct curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -149,17 +140,13 @@ bool HttpCall::setOptions(CURL* curl, HttpMethod method, const vector<string>& c
         }
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
-    }
-
-    if (method == PUT) {
+    } else if (method == PUT) {
         curl_easy_setopt(curl, CURLOPT_PUT, 1L);
         curl_easy_setopt(curl, CURLOPT_READDATA, NULL);
         curl_easy_setopt(curl, CURLOPT_INFILESIZE, 0L);
     } else if (method == DELETE) {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     }
-
-    return true;
 }
 
 size_t HttpCall::write_callback(void *contents, size_t size, size_t nmemb, void *userp)

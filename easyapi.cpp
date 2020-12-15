@@ -195,6 +195,11 @@ void processMultipleApiCalls(const ParseArguments& pa,
         vector<string> varsWithoutFuncs = removeFunctions(variables);
         if (!isSame(varsWithoutFuncs, firstLineVariables)) {
             cout << "Variables of data-template and data-file are not matched" << endl;
+            cout << "The variables in given command:" << endl;
+            for_each(varsWithoutFuncs.begin(), varsWithoutFuncs.end(), [](string& var){cout << var << " ";});
+            cout << endl << "The variables on the first line of given data file:" << endl;
+            for_each(firstLineVariables.begin(), firstLineVariables.end(), [](string& var){cout << var << " ";});
+            cout << endl;
             return;
         }
     }
@@ -392,7 +397,7 @@ int main(int argc, char* argv[]) {
         cout << "  --delimiters or -d" << "\t" << "Defile a delimiter. Default is space and comma (\" ,\")." << endl;
         cout << "  --force-run or -fr" << "\t" << "Forced run. If this option is set, not asking to check input parameters. So, please be very cautious when using this option." << endl;
         cout << "  --num-api-calls or -nc" << "\t" << "The number of api calls. When data-file is not set and this is greater than zero, api calls will be repeated by this parameter." << endl;
-        cout << "  --header or -h" << "\t" << "Add a header string. When adding multiple headers, use this option multiple times." << endl;
+        cout << "  --header or -h" << "\t" << "Add a header string. When adding multiple headers, use this option multiple times. E.g. -h \'key: value\'." << endl;
         return 0;
     }
 

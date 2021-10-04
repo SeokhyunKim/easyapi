@@ -1,4 +1,5 @@
 #include "HttpCall.hpp"
+#include <stdexcept>
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
@@ -61,7 +62,7 @@ int HttpCall::createKey() {
     lock_guard<mutex> lock(curls_mutex);
     CURL* curl = curl_easy_init();
     if (curl == nullptr) {
-        return -1;
+        throw "failed to initialize HttpCall using curl_easy_init()";
     }
     curls.push_back(curl);
     return curls.size() - 1;
